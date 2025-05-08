@@ -1,11 +1,11 @@
 const express = require('express');
 const router = express.Router();
-const habitacionController = require('../controllers/habitacionController');
+const habitacionesController = require('../controllers/habitacionesController');
 
 // POST /habitaciones
-router.post('/', habitacionController.crearHabitacion);
+router.post('/', habitacionesController.crearHabitacion);
 
 // GET /habitaciones
-router.get('/', habitacionController.obtenerHabitaciones);
+router.get('/', habitacionesController.obtenerHabitaciones);
 
 module.exports = router;

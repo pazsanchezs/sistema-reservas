@@ -9,7 +9,7 @@ module.exports = (sequelize, DataTypes) => {
     });
   
     Cliente.associate = (models) => {
-      Cliente.hasMany(models.Reserva, { foreignKey: 'id_cliente' });
+      Cliente.hasMany(models.Reserva, { foreignKey: 'ClienteId' });
     };
   
     return Cliente;

@@ -7,12 +7,12 @@ module.exports = (sequelize, DataTypes) => {
         notEmpty: true
       }
     },
-    hotelId: {
+    hotelId: { 
       type: DataTypes.INTEGER,
       allowNull: false,
-      field: 'id_hotel',
+      field: 'HotelId',
       references: {
-        model: 'Hotels', // Nombre de la tabla de hoteles
+        model: 'Hotels', 
         key: 'id'
       }
     },
@@ -51,8 +51,8 @@ module.exports = (sequelize, DataTypes) => {
 
   Habitacion.associate = (models) => {
     Habitacion.belongsTo(models.Hotel, { 
-      foreignKey: 'hotelId',
-      as: 'hotel' 
+      foreignKey: 'HotelId',
+      as: 'hotel'
     });
     Habitacion.hasMany(models.Reserva, { 
       foreignKey: 'habitacionId',

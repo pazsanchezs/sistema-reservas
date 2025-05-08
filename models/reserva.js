@@ -1,38 +1,50 @@
 module.exports = (sequelize, DataTypes) => {
   const Reserva = sequelize.define('Reserva', {
-    hotelId: {
-      type: DataTypes.INTEGER,
-      allowNull: false,
-      field: 'id_hotel'
-    },
-    habitacionId: {
-      type: DataTypes.INTEGER,
-      allowNull: false,
-      field: 'id_habitacion'
-    },
     fecha_ingreso: {
-      type: DataTypes.DATE,
+      type: DataTypes.DATEONLY,
       allowNull: false
     },
     fecha_salida: {
-      type: DataTypes.DATE,
+      type: DataTypes.DATEONLY,
       allowNull: false
-    },
-    clienteId: {
-      type: DataTypes.INTEGER,
-      allowNull: false,
-      field: 'id_cliente'
     },
     cantidad_personas: {
       type: DataTypes.INTEGER,
-      allowNull: false
+      allowNull: true,
+      validate: {
+        min: 1
+      }
+    },
+    ClienteId: {
+      type: DataTypes.INTEGER,
+      allowNull: false,
+      references: {
+        model: 'Clientes',
+        key: 'id'
+      }
+    },
+    HotelId: {
+      type: DataTypes.INTEGER,
+      allowNull: false,
+      references: {
+        model: 'Hotels',
+        key: 'id'
+      }
+    },
+    HabitacionId: {
+      type: DataTypes.INTEGER,
+      allowNull: false,
+      references: {
+        model: 'Habitacions',
+        key: 'id'
+      }
     }
   });
 
   Reserva.associate = (models) => {
-    Reserva.belongsTo(models.Hotel, { foreignKey: 'hotelId' });
-    Reserva.belongsTo(models.Habitacion, { foreignKey: 'habitacionId' });
-    Reserva.belongsTo(models.Cliente, { foreignKey: 'clienteId' });
+    Reserva.belongsTo(models.Cliente, { foreignKey: 'ClienteId' });
+    Reserva.belongsTo(models.Hotel, { foreignKey: 'HotelId' });
+    Reserva.belongsTo(models.Habitacion, { foreignKey: 'HabitacionId' });
   };
 
   return Reserva;

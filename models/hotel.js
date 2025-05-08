@@ -5,8 +5,8 @@ module.exports = (sequelize, DataTypes) => {
   });
 
   Hotel.associate = (models) => {
-    Hotel.hasMany(models.Habitacion, { foreignKey: 'id_hotel' });
-    Hotel.hasMany(models.Reserva, { foreignKey: 'id_hotel' });
+    Hotel.hasMany(models.Habitacion, { foreignKey: 'HotelId' });
+    Hotel.hasMany(models.Reserva, { foreignKey: 'HotelId' });
   };
 
   return Hotel;

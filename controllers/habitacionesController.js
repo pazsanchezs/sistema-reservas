@@ -19,7 +19,7 @@ const crearHabitacion = async (req, res) => {
     }
 
     // Verificar duplicados
-    const existe = await Habitacion.findOne({ where: { numero, hotelId } });
+    const existe = await Habitacion.findOne({ where: { numero, HotelId } });
     if (existe) {
       return res.status(409).json({ 
         error: 'Ya existe una habitación con este número en el hotel' 
@@ -28,13 +28,14 @@ const crearHabitacion = async (req, res) => {
 
     const habitacion = await Habitacion.create({
       numero,
-      hotelId,
+      HotelId: hotelId,
       posicion_x: posX,
       posicion_y: posY,
       piso,
       capacidad,
       caracteristicas: req.body.caracteristicas || ''
     });
+    
 
     res.status(201).json(habitacion);
   } catch (error) {

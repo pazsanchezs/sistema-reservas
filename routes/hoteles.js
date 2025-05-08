@@ -2,6 +2,8 @@ const express = require('express');
 const { Hotel } = require('../models');
 const router = express.Router();
 
+//console.log(' Rutas de hoteles cargadas');
+
 // Obtener todos los hoteles
 router.get('/', async (req, res) => {
   try {

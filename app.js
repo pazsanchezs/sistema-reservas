@@ -19,9 +19,9 @@ app.use(morgan('dev')); // Logging de requests en desarrollo
 
 // Conexión a la base de datos
 const sequelize = new Sequelize(
-  process.env.DB_NAME || 'hotel_reservas',
+  process.env.DB_NAME || 'sistema_reservas_db',
   process.env.DB_USER || 'postgres',
-  process.env.DB_PASS || 'postgres',
+  process.env.DB_PASS || 'password',
   {
     host: process.env.DB_HOST || 'localhost',
     dialect: 'postgres',
@@ -40,20 +40,16 @@ sequelize.authenticate()
   .then(() => console.log('Conexión a la base de datos establecida'))
   .catch(err => console.error('Error al conectar a la base de datos:', err));
 
-// Importar modelos y relaciones
-require('./models/associations'); // Archivo adicional para relaciones
 
-// Rutas API
-const apiRouter = express.Router();
-app.use('/api', apiRouter);
-
-apiRouter.use('/hoteles', require('./routes/hoteles'));
-apiRouter.use('/habitaciones', require('./routes/habitaciones'));
-apiRouter.use('/clientes', require('./routes/clientes'));
-apiRouter.use('/reservas', require('./routes/reservas'));
+  app.use('/hoteles', require('./routes/hoteles'));
+  app.use('/habitaciones', require('./routes/habitaciones'));
+  app.use('/clientes', require('./routes/clientes'));
+  const reservasRouter = require('./routes/reservas');
+  app.use('/reservas', reservasRouter);
+    
 
 // Ruta de estado del servidor
-apiRouter.get('/status', (req, res) => {
+app.get('/status', (req, res) => {
   res.json({
     status: 'OK',
     environment: process.env.NODE_ENV || 'development',
@@ -66,7 +62,7 @@ app.get('/', (req, res) => {
   res.json({
     message: 'API de Reservas de Hotel',
     version: '1.0.0',
-    docs: '/api-docs' // Si implementas Swagger luego
+    docs: '/api-docs'
   });
 });
 
