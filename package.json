@@ -1,5 +1,4 @@
 {
-<<<<<<< HEAD
   "name": "sistema-reservas",
   "version": "1.0.0",
   "main": "index.js",
@@ -19,9 +18,6 @@
     "morgan": "^1.10.0",
     "pg": "^8.15.6",
     "pg-hstore": "^2.3.4",
-=======
-  "dependencies": {
->>>>>>> 8423dcd474687a08d9dc37bfabaa6e103d3f71a6
     "sequelize": "^6.37.7"
   }
 }
