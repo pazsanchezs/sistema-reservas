@@ -1,19 +1,22 @@
 module.exports = (sequelize, DataTypes) => {
   const Reserva = sequelize.define('Reserva', {
-    fecha_ingreso: {
+    fechaIngreso: {
       type: DataTypes.DATEONLY,
-      allowNull: false
+      allowNull: false,
+      field: 'fechaIngreso'
     },
-    fecha_salida: {
+    fechaSalida: {
       type: DataTypes.DATEONLY,
-      allowNull: false
+      allowNull: false,
+      field: 'fechaSalida'
     },
-    cantidad_personas: {
+    cantidadPersonas: {
       type: DataTypes.INTEGER,
       allowNull: true,
       validate: {
         min: 1
-      }
+      },
+      field: 'cantidadPersonas'
     },
     ClienteId: {
       type: DataTypes.INTEGER,
