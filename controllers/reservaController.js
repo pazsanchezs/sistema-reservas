@@ -5,7 +5,7 @@ const crearReserva = async (req, res) => {
   try {
     const { fechaIngreso, fechaSalida, cantidadPersonas, HotelId, HabitacionId, cedula, nombre, apellido } = req.body;
 
-    // Buscar al cliente por cédula
+    // Buscar al cliente por cedula
     const cliente = await Cliente.findOne({
       where: { cedula }
     });

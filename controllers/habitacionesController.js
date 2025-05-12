@@ -3,10 +3,8 @@ const { Op } = require('sequelize');
 
 const crearHabitacion = async (req, res) => {
   try {
-    // Destructuring con las claves correctas, HotelId en mayúsculas
     const { numero, HotelId, posicion_x, posicion_y, piso, capacidad } = req.body;
 
-    // Validación manual adicional
     if (!numero || !HotelId || posicion_x === undefined || posicion_y === undefined || !piso || !capacidad) {
       return res.status(400).json({ 
         error: 'Faltan campos requeridos: numero, HotelId, posicion_x, posicion_y, piso, capacidad' 
@@ -14,23 +12,23 @@ const crearHabitacion = async (req, res) => {
     }
 
     // Verificar existencia del hotel
-    const hotel = await Hotel.findByPk(HotelId); // Usar HotelId en lugar de hotelId
+    const hotel = await Hotel.findByPk(HotelId); 
     if (!hotel) {
       return res.status(404).json({ error: 'Hotel no encontrado' });
     }
 
     // Verificar duplicados
-    const existe = await Habitacion.findOne({ where: { numero, HotelId } }); // Usar HotelId en lugar de hotelId
+    const existe = await Habitacion.findOne({ where: { numero, HotelId } }); 
     if (existe) {
       return res.status(409).json({ 
         error: 'Ya existe una habitación con este número en el hotel' 
       });
     }
 
-    // Crear la habitación
+    // Crear la habitacion
     const habitacion = await Habitacion.create({
       numero,
-      HotelId,  // Usar HotelId en lugar de hotelId
+      HotelId, 
       posicion_x: posicion_x,
       posicion_y: posicion_y,
       piso,

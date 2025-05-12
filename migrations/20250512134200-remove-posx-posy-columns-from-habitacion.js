@@ -6,7 +6,6 @@ module.exports = {
   },
 
   down: async (queryInterface, Sequelize) => {
-    // Si necesitas revertir la migración, puedes volver a agregar las columnas aquí
     await queryInterface.addColumn('Habitacions', 'posX', {
       type: Sequelize.INTEGER,
       allowNull: false,
