@@ -7,7 +7,7 @@ module.exports = (sequelize, DataTypes) => {
         notEmpty: true
       }
     },
-    hotelId: { 
+    HotelId: { 
       type: DataTypes.INTEGER,
       allowNull: false,
       field: 'HotelId',
@@ -55,7 +55,7 @@ module.exports = (sequelize, DataTypes) => {
       as: 'hotel'
     });
     Habitacion.hasMany(models.Reserva, { 
-      foreignKey: 'habitacionId',
+      foreignKey: 'HabitacionId',
       as: 'reservas'
     });
   };

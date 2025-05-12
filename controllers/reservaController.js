@@ -3,7 +3,17 @@ const { Op } = require('sequelize');
 
 const crearReserva = async (req, res) => {
   try {
-    const { fechaIngreso, fechaSalida, cantidadPersonas, ClienteId, HotelId, HabitacionId } = req.body;
+    const { fechaIngreso, fechaSalida, cantidadPersonas, HotelId, HabitacionId, cedula, nombre, apellido } = req.body;
+
+    // Buscar al cliente por cédula
+    const cliente = await Cliente.findOne({
+      where: { cedula }
+    });
+
+    // Si no se encuentra el cliente, se puede crear o retornar un error
+    if (!cliente) {
+      return res.status(404).json({ error: 'Cliente no encontrado' });
+    }
 
     // Verificar que la habitación existe
     const habitacion = await Habitacion.findByPk(HabitacionId);
@@ -45,16 +55,30 @@ const crearReserva = async (req, res) => {
       });
     }
 
+    // Crear la reserva
     const reserva = await Reserva.create({
       fechaIngreso,
       fechaSalida,
       cantidadPersonas,
-      ClienteId,
-      hotelId,
+      ClienteId: cliente.id,  // Usar el ClienteId encontrado
+      HotelId,
       HabitacionId
     });
 
-    res.status(201).json(reserva);
+    res.status(201).json({
+      mensaje: "Reserva creada con éxito",
+      reserva: {
+        id: reserva.id,
+        fechaIngreso: reserva.fechaIngreso,
+        fechaSalida: reserva.fechaSalida,
+        cantidadPersonas: reserva.cantidadPersonas,
+        ClienteId: reserva.ClienteId,
+        HotelId: reserva.HotelId,
+        HabitacionId: reserva.HabitacionId,
+        createdAt: reserva.createdAt,
+        updatedAt: reserva.updatedAt
+      }
+    });
   } catch (error) {
     console.error('Error al crear reserva:', error);
     res.status(500).json({ 
@@ -66,14 +90,14 @@ const crearReserva = async (req, res) => {
 
 const obtenerReservas = async (req, res) => {
   try {
-    const { hotelId, fechaIngreso, fechaSalida, ClienteId } = req.query;
+    const { HotelId, fechaIngreso, fechaSalida, ClienteId } = req.query;
 
-    if (!hotelId || !fechaIngreso) {
-      return res.status(400).json({ error: 'hotelId y fechaIngreso son obligatorios' });
+    if (!HotelId || !fechaIngreso) {
+      return res.status(400).json({ error: 'HotelId y fechaIngreso son obligatorios' });
     }
 
     const where = {
-      hotelId,
+      HotelId,
       fechaIngreso: { [Op.gte]: fechaIngreso }
     };
 
@@ -112,7 +136,7 @@ const obtenerReservas = async (req, res) => {
 
 const buscarDisponibles = async (req, res) => {
   try {
-    const { fechaIngreso, fechaSalida, capacidad, hotelId } = req.query;
+    const { fechaIngreso, fechaSalida, capacidad, HotelId } = req.query;
     
     if (!fechaIngreso || !fechaSalida) {
       return res.status(400).json({ error: 'Las fechas de ingreso y salida son requeridas' });
@@ -147,7 +171,7 @@ const buscarDisponibles = async (req, res) => {
     };
     
     if (capacidad) whereHabitacion.capacidad = { [Op.gte]: capacidad };
-    if (hotelId) whereHabitacion.hotelId = hotelId;
+    if (HotelId) whereHabitacion.HotelId = HotelId;
 
     const habitaciones = await Habitacion.findAll({
       where: whereHabitacion,
