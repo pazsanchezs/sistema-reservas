@@ -5,26 +5,32 @@ const crearReserva = async (req, res) => {
   try {
     const { fechaIngreso, fechaSalida, cantidadPersonas, HotelId, HabitacionId, cedula, nombre, apellido } = req.body;
 
-    // Buscar al cliente por cedula
-    const cliente = await Cliente.findOne({
-      where: { cedula }
-    });
-
-    // Si no se encuentra el cliente, se puede crear o retornar un error
-    if (!cliente) {
-      return res.status(404).json({ error: 'Cliente no encontrado' });
+    // Validación de fechas
+    if (new Date(fechaSalida) <= new Date(fechaIngreso)) {
+      return res.status(400).json({ error: 'La fecha de salida debe ser posterior a la de ingreso' });
     }
 
-    // Verificar que la habitación existe
-    const habitacion = await Habitacion.findByPk(HabitacionId);
+    // Verificar que el hotel existe
+    const hotel = await Hotel.findByPk(HotelId);
+    if (!hotel) {
+      return res.status(404).json({ error: 'Hotel no encontrado' });
+    }
+
+    // Verificar que la habitación existe y pertenece al hotel
+    const habitacion = await Habitacion.findOne({
+      where: {
+        id: HabitacionId,
+        HotelId: HotelId
+      }
+    });
     if (!habitacion) {
-      return res.status(404).json({ error: 'Habitación no encontrada' });
+      return res.status(404).json({ error: 'Habitación no encontrada en este hotel' });
     }
 
     // Verificar capacidad
     if (cantidadPersonas > habitacion.capacidad) {
-      return res.status(400).json({ 
-        error: `La habitación solo tiene capacidad para ${habitacion.capacidad} personas` 
+      return res.status(400).json({
+        error: `La habitación solo tiene capacidad para ${habitacion.capacidad} personas`
       });
     }
 
@@ -32,27 +38,26 @@ const crearReserva = async (req, res) => {
     const existeReserva = await Reserva.findOne({
       where: {
         HabitacionId,
-        [Op.or]: [
-          {
-            fechaIngreso: { [Op.between]: [fechaIngreso, fechaSalida] }
-          },
-          {
-            fechaSalida: { [Op.between]: [fechaIngreso, fechaSalida] }
-          },
-          {
-            [Op.and]: [
-              { fechaIngreso: { [Op.lte]: fechaIngreso } },
-              { fechaSalida: { [Op.gte]: fechaSalida } }
-            ]
-          }
+        [Op.and]: [
+          { fechaIngreso: { [Op.lt]: fechaSalida } },
+          { fechaSalida: { [Op.gt]: fechaIngreso } }
         ]
       }
     });
 
     if (existeReserva) {
-      return res.status(409).json({ 
-        error: 'La habitación no está disponible para las fechas seleccionadas' 
+      return res.status(409).json({
+        error: 'La habitación no está disponible para las fechas seleccionadas'
       });
+    }
+
+    // Buscar o crear cliente
+    let cliente = await Cliente.findOne({ where: { cedula } });
+    if (!cliente) {
+      if (!nombre || !apellido) {
+        return res.status(400).json({ error: 'Nombre y apellido son requeridos para nuevos clientes' });
+      }
+      cliente = await Cliente.create({ cedula, nombre, apellido });
     }
 
     // Crear la reserva
@@ -60,28 +65,51 @@ const crearReserva = async (req, res) => {
       fechaIngreso,
       fechaSalida,
       cantidadPersonas,
-      ClienteId: cliente.id,  // Usar el ClienteId encontrado
+      ClienteId: cliente.id,
       HotelId,
       HabitacionId
+    });
+
+    // Obtener datos completos para la respuesta
+    const reservaCompleta = await Reserva.findByPk(reserva.id, {
+      include: [
+        { model: Cliente },
+        { model: Hotel },
+        { 
+          model: Habitacion,
+          include: [{ model: Hotel }]
+        }
+      ]
     });
 
     res.status(201).json({
       mensaje: "Reserva creada con éxito",
       reserva: {
-        id: reserva.id,
-        fechaIngreso: reserva.fechaIngreso,
-        fechaSalida: reserva.fechaSalida,
-        cantidadPersonas: reserva.cantidadPersonas,
-        ClienteId: reserva.ClienteId,
-        HotelId: reserva.HotelId,
-        HabitacionId: reserva.HabitacionId,
-        createdAt: reserva.createdAt,
-        updatedAt: reserva.updatedAt
+        id: reservaCompleta.id,
+        fechaIngreso: reservaCompleta.fechaIngreso,
+        fechaSalida: reservaCompleta.fechaSalida,
+        cantidadPersonas: reservaCompleta.cantidadPersonas,
+        cliente: {
+          cedula: reservaCompleta.Cliente.cedula,
+          nombre: reservaCompleta.Cliente.nombre,
+          apellido: reservaCompleta.Cliente.apellido
+        },
+        hotel: {
+          id: reservaCompleta.Hotel.id,
+          nombre: reservaCompleta.Hotel.nombre
+        },
+        habitacion: {
+          id: reservaCompleta.Habitacion.id,
+          numero: reservaCompleta.Habitacion.numero,
+          piso: reservaCompleta.Habitacion.piso,
+          capacidad: reservaCompleta.Habitacion.capacidad,
+          caracteristicas: reservaCompleta.Habitacion.caracteristicas
+        }
       }
     });
   } catch (error) {
     console.error('Error al crear reserva:', error);
-    res.status(500).json({ 
+    res.status(500).json({
       error: 'Error al crear reserva',
       detalles: process.env.NODE_ENV === 'development' ? error.message : undefined
     });
@@ -112,9 +140,13 @@ const obtenerReservas = async (req, res) => {
     const reservas = await Reserva.findAll({
       where,
       include: [
-        { model: Cliente },
-        { model: Hotel },
-        { model: Habitacion }
+        { model: Cliente, attributes: ['cedula', 'nombre', 'apellido'] },
+        { model: Hotel, attributes: ['nombre'] },
+        { 
+          model: Habitacion,
+          attributes: ['numero', 'piso', 'capacidad', 'caracteristicas'],
+          include: [{ model: Hotel, attributes: ['nombre'] }]
+        }
       ],
       order: [
         ['fechaIngreso', 'ASC'],
@@ -123,7 +155,18 @@ const obtenerReservas = async (req, res) => {
       ]
     });
 
-    res.json(reservas);
+    res.json(reservas.map(reserva => ({
+      id: reserva.id,
+      fechaIngreso: reserva.fechaIngreso,
+      fechaSalida: reserva.fechaSalida,
+      cantidadPersonas: reserva.cantidadPersonas,
+      cliente: reserva.Cliente,
+      hotel: reserva.Hotel,
+      habitacion: {
+        ...reserva.Habitacion.toJSON(),
+        hotel: reserva.Habitacion.Hotel
+      }
+    })));
   } catch (error) {
     console.error('Error al obtener reservas:', error);
     res.status(500).json({ 
@@ -133,54 +176,71 @@ const obtenerReservas = async (req, res) => {
   }
 };
 
-
 const buscarDisponibles = async (req, res) => {
   try {
     const { fechaIngreso, fechaSalida, capacidad, HotelId } = req.query;
     
-    if (!fechaIngreso || !fechaSalida) {
-      return res.status(400).json({ error: 'Las fechas de ingreso y salida son requeridas' });
+    // Validaciones básicas
+    if (!fechaIngreso || !fechaSalida || !HotelId) {
+      return res.status(400).json({ 
+        error: 'Los campos fechaIngreso, fechaSalida y HotelId son requeridos' 
+      });
     }
 
-    // Obtener habitaciones ocupadas en el rango
-    const reservas = await Reserva.findAll({
+    if (new Date(fechaSalida) <= new Date(fechaIngreso)) {
+      return res.status(400).json({ error: 'La fecha de salida debe ser posterior a la de ingreso' });
+    }
+
+    // Obtener habitaciones ocupadas
+    const reservasOcupadas = await Reserva.findAll({
       where: {
-        [Op.or]: [
-          {
-            fechaIngreso: { [Op.between]: [fechaIngreso, fechaSalida] }
-          },
-          {
-            fechaSalida: { [Op.between]: [fechaIngreso, fechaSalida] }
-          },
-          {
-            [Op.and]: [
-              { fechaIngreso: { [Op.lte]: fechaIngreso } },
-              { fechaSalida: { [Op.gte]: fechaSalida } }
-            ]
-          }
-        ]
+        [Op.and]: [
+          { fechaIngreso: { [Op.lt]: fechaSalida } },
+          { fechaSalida: { [Op.gt]: fechaIngreso } }
+        ],
+        HotelId
       },
-      attributes: ['HabitacionId']
+      attributes: ['HabitacionId'],
+      raw: true
     });
 
-    const ocupadas = reservas.map(r => r.HabitacionId);
-    
-    // Filtros para habitaciones disponibles
-    const whereHabitacion = {
-      id: { [Op.notIn]: ocupadas }
+    const idsOcupadas = reservasOcupadas.map(r => r.HabitacionId);
+
+    // Buscar habitaciones disponibles
+    const where = {
+      HotelId,
+      id: { [Op.notIn]: idsOcupadas }
     };
-    
-    if (capacidad) whereHabitacion.capacidad = { [Op.gte]: capacidad };
-    if (HotelId) whereHabitacion.HotelId = HotelId;
+
+    if (capacidad) {
+      where.capacidad = { [Op.gte]: parseInt(capacidad) };
+    }
 
     const habitaciones = await Habitacion.findAll({
-      where: whereHabitacion,
+      where,
       include: [
-        { model: Hotel, attributes: ['nombre', 'direccion'] }
+        { 
+          model: Hotel,
+          as: 'hotel', // Aquí se usa el alias 'hotel'
+          attributes: ['nombre', 'direccion']
+        }
+      ],
+      attributes: ['id', 'numero', 'piso', 'capacidad', 'caracteristicas', 'posicion_x', 'posicion_y'],
+      order: [
+        ['piso', 'ASC'],
+        ['numero', 'ASC']
       ]
     });
 
-    res.json(habitaciones);
+    res.json(habitaciones.map(h => ({
+      id: h.id,
+      numero: h.numero,
+      piso: h.piso,
+      capacidad: h.capacidad,
+      caracteristicas: h.caracteristicas,
+      posicion: { x: h.posicion_x, y: h.posicion_y },
+      hotel: h.Hotel // 'Hotel' está asociado a 'hotel' en el alias
+    })));
   } catch (error) {
     console.error('Error al buscar disponibilidad:', error);
     res.status(500).json({ 
@@ -189,6 +249,7 @@ const buscarDisponibles = async (req, res) => {
     });
   }
 };
+
 
 module.exports = {
   crearReserva,

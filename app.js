@@ -5,6 +5,9 @@ const cors = require('cors');
 const morgan = require('morgan'); // Nuevo: Para logging de requests
 const { Sequelize } = require('sequelize');
 const app = express();
+const path = require('path');
+
+app.use(express.static(path.join(__dirname, 'public')));
 
 // Configuración de middlewares
 app.use(cors({
@@ -59,12 +62,9 @@ app.get('/status', (req, res) => {
 
 // Ruta principal
 app.get('/', (req, res) => {
-  res.json({
-    message: 'API de Reservas de Hotel',
-    version: '1.0.0',
-    docs: '/api-docs'
-  });
+  res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
+
 
 // Manejo de errores 404
 app.use((req, res, next) => {
