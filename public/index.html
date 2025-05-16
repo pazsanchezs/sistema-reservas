@@ -25,10 +25,10 @@
     .habitacion { border: 1px solid #ffffff; padding: 10px; margin-bottom: 10px; }
     .error { color: red; }
     .success { color: green; }
-  .enlace-centrado {
-    text-align: center;
-    margin-top: 10px;
-  }
+    .enlace-centrado {
+      text-align: center;
+      margin-top: 10px;
+    }
   </style>
 </head>
 <body>
@@ -98,6 +98,18 @@
   </form>
 
   <script>
+// Función para formatear fechas sin problemas de zona horaria
+function formatDate(dateString) {
+  const date = new Date(dateString);
+  // Ajustamos para compensar la zona horaria
+  const adjustedDate = new Date(date.getTime() + date.getTimezoneOffset() * 60000);
+  return adjustedDate.toLocaleDateString('es-ES', {
+    year: 'numeric',
+    month: 'numeric',
+    day: 'numeric'
+  });
+}
+
 document.addEventListener('DOMContentLoaded', () => {
   const buscarForm = document.getElementById('buscarDisponibilidad');
   const reservaForm = document.getElementById('crearReserva');
@@ -107,31 +119,31 @@ document.addEventListener('DOMContentLoaded', () => {
   console.log("🧪 DOM cargado. reservaForm encontrado:", reservaForm);
 
   function setCamposClienteRequired(requerido) {
-  const camposCliente = document.getElementById('camposCliente');
-  const nombreInput = reservaForm.nombre;
-  const apellidoInput = reservaForm.apellido;
-  
-  camposCliente.style.display = requerido ? 'block' : 'none';
-  nombreInput.required = requerido;
-  apellidoInput.required = requerido;
-}
+    const camposCliente = document.getElementById('camposCliente');
+    const nombreInput = reservaForm.nombre;
+    const apellidoInput = reservaForm.apellido;
+    
+    camposCliente.style.display = requerido ? 'block' : 'none';
+    nombreInput.required = requerido;
+    apellidoInput.required = requerido;
+  }
 
-    // Verificar si cliente existe al ingresar cédula
-    reservaForm.cedula.addEventListener('blur', async () => {
-      const cedula = reservaForm.cedula.value.trim();
-      if (!cedula) {
-        setCamposClienteRequired(true); // Mostrar campos si cédula está vacía
-        return;
-      }
+  // Verificar si cliente existe al ingresar cédula
+  reservaForm.cedula.addEventListener('blur', async () => {
+    const cedula = reservaForm.cedula.value.trim();
+    if (!cedula) {
+      setCamposClienteRequired(true); // Mostrar campos si cédula está vacía
+      return;
+    }
 
-      try {
-        const res = await fetch(`http://localhost:3000/clientes?cedula=${cedula}`);
-        setCamposClienteRequired(!res.ok); // Mostrar campos solo si cliente no existe
-      } catch (error) {
-        console.error('Error verificando cliente:', error);
-        setCamposClienteRequired(true); // Mostrar campos por si hay error
-      }
-    });
+    try {
+      const res = await fetch(`http://localhost:3000/clientes?cedula=${cedula}`);
+      setCamposClienteRequired(!res.ok); // Mostrar campos solo si cliente no existe
+    } catch (error) {
+      console.error('Error verificando cliente:', error);
+      setCamposClienteRequired(true); // Mostrar campos por si hay error
+    }
+  });
 
   buscarForm.addEventListener('submit', async (e) => {
     e.preventDefault();
@@ -193,10 +205,10 @@ document.addEventListener('DOMContentLoaded', () => {
       reservaForm.fechaSalida.value = data.fechaSalida;
       reservaForm.cantidadPersonas.value = data.capacidad;
 
-      // Actualizar resumen
+      // Actualizar resumen con fechas formateadas correctamente
       document.getElementById('reservaHotel').textContent = `Hotel ID ${data.HotelId}`;
       document.getElementById('reservaFechas').textContent = 
-        `${new Date(data.fechaIngreso).toLocaleDateString()} al ${new Date(data.fechaSalida).toLocaleDateString()}`;
+        `${formatDate(data.fechaIngreso)} al ${formatDate(data.fechaSalida)}`;
       document.getElementById('reservaPersonas').textContent = data.capacidad;
 
       reservaForm.style.display = 'block';
@@ -245,7 +257,7 @@ document.addEventListener('DOMContentLoaded', () => {
             <h3>✅ Reserva exitosa</h3>
             <p><strong>Número de reserva:</strong> ${respuesta.reserva.id}</p>
             <p><strong>Habitación:</strong> ${respuesta.reserva.habitacion.numero} (Piso ${respuesta.reserva.habitacion.piso})</p>
-            <p><strong>Fechas:</strong> ${new Date(respuesta.reserva.fechaIngreso).toLocaleDateString()} al ${new Date(respuesta.reserva.fechaSalida).toLocaleDateString()}</p>
+            <p><strong>Fechas:</strong> ${formatDate(respuesta.reserva.fechaIngreso)} al ${formatDate(respuesta.reserva.fechaSalida)}</p>
           </div>
         `;
         reservaForm.reset();
@@ -257,14 +269,13 @@ document.addEventListener('DOMContentLoaded', () => {
     } catch (error) {
       let msg = error.message;
       try {
-        const errJson = await error.response.json();
-        if (errJson.error) msg = errJson.error;
+        const errJson = await error.response?.json();
+        if (errJson?.error) msg = errJson.error;
       } catch {}
 
       resultadoDiv.innerHTML = `<div class="error">❌ Error al crear reserva: ${msg}</div>`;
       console.error('Error:', error);
     }
-
   });
 });
 </script>
@@ -272,86 +283,110 @@ document.addEventListener('DOMContentLoaded', () => {
 
   <section id="reservas">
     <form id="formReservas">
-  <label>Hotel ID:
-    <input type="number" name="HotelId" required>
-  </label>
+      <label>Hotel ID:
+        <input type="number" name="HotelId" required>
+      </label>
 
-  <label>Fecha de Ingreso:
-    <input type="date" name="fechaIngreso" required>
-  </label>
+      <label>Fecha de Ingreso:
+        <input type="date" name="fechaIngreso" required>
+      </label>
 
-  <label>Fecha de Salida (opcional):
-    <input type="date" name="fechaSalida">
-  </label>
+      <label>Fecha de Salida (opcional):
+        <input type="date" name="fechaSalida">
+      </label>
 
-  <label>Cédula del Cliente (opcional):
-    <input type="text" name="cedula">
-  </label>
+      <label>Cédula del Cliente (opcional):
+        <input type="text" name="cedula">
+      </label>
 
-  <button type="submit">Buscar Reservas</button>
-</form>
+      <button type="submit">Buscar Reservas</button>
+    </form>
 
-<div id="listaReservas"></div>
+    <div id="listaReservas"></div>
 
-<script>
-  const formReservas = document.getElementById('formReservas');
-  const listaReservasDiv = document.getElementById('listaReservas');
-
-  formReservas.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    listaReservasDiv.innerHTML = '<p>Buscando reservas...</p>';
-
-    const data = {
-      HotelId: formReservas.HotelId.value,
-      fechaIngreso: formReservas.fechaIngreso.value,
-      fechaSalida: formReservas.fechaSalida.value,
-      cedula: formReservas.cedula.value
-    };
-
-    const params = new URLSearchParams();
-    params.append("HotelId", data.HotelId);
-    params.append("fechaIngreso", data.fechaIngreso);
-    if (data.fechaSalida) params.append("fechaSalida", data.fechaSalida);
-    if (data.cedula) params.append("cedula", data.cedula);
-
-    try {
-      const res = await fetch(`http://localhost:3000/reservas?${params}`);
-      if (!res.ok) throw new Error(await res.text());
-
-      const reservas = await res.json();
-
-      if (reservas.length === 0) {
-        listaReservasDiv.innerHTML = '<div class="error">❌ No se encontraron reservas con los filtros indicados.</div>';
-        return;
+    <script>
+      // Función para formatear fechas (la misma que arriba)
+      function formatDate(dateString) {
+        const date = new Date(dateString);
+        // Ajustamos para compensar la zona horaria
+        const adjustedDate = new Date(date.getTime() + date.getTimezoneOffset() * 60000);
+        return adjustedDate.toLocaleDateString('es-ES', {
+          year: 'numeric',
+          month: 'numeric',
+          day: 'numeric'
+        });
       }
 
-      // Ordenar reservas (fecha, piso, número)
-      reservas.sort((a, b) => {
-        const fechaA = new Date(a.fechaIngreso), fechaB = new Date(b.fechaIngreso);
-        if (fechaA - fechaB !== 0) return fechaA - fechaB;
-        if (a.Habitacion.piso - b.Habitacion.piso !== 0) return a.Habitacion.piso - b.Habitacion.piso;
-        return a.Habitacion.numero - b.Habitacion.numero;
+      const formReservas = document.getElementById('formReservas');
+      const listaReservasDiv = document.getElementById('listaReservas');
+
+      formReservas.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        listaReservasDiv.innerHTML = '<p>Buscando reservas...</p>';
+
+        const data = {
+          HotelId: formReservas.HotelId.value,
+          fechaIngreso: formReservas.fechaIngreso.value,
+          fechaSalida: formReservas.fechaSalida.value,
+          cedula: formReservas.cedula.value
+        };
+
+        const params = new URLSearchParams();
+        params.append("HotelId", data.HotelId);
+        params.append("fechaIngreso", data.fechaIngreso);
+        if (data.fechaSalida) params.append("fechaSalida", data.fechaSalida);
+        if (data.cedula) params.append("cedula", data.cedula);
+
+        try {
+          const res = await fetch(`http://localhost:3000/reservas?${params}`);
+          if (!res.ok) throw new Error(await res.text());
+
+          const reservas = await res.json();
+
+          if (reservas.length === 0) {
+            listaReservasDiv.innerHTML = '<div class="error">❌ No se encontraron reservas con los filtros indicados.</div>';
+            return;
+          }
+
+          // Ordenar reservas (fecha, piso, número)
+          reservas.sort((a, b) => {
+            const fechaA = new Date(a.fechaIngreso), fechaB = new Date(b.fechaIngreso);
+            if (fechaA - fechaB !== 0) return fechaA - fechaB;
+            if (a.Habitacion.piso - b.Habitacion.piso !== 0) return a.Habitacion.piso - b.Habitacion.piso;
+            return a.Habitacion.numero - b.Habitacion.numero;
+          });
+
+          listaReservasDiv.innerHTML = `
+  <h3>Reservas encontradas (${reservas.length})</h3>
+  ${reservas.map(r => {
+    // Extraemos todos los datos con verificaciones
+    const clienteInfo = r.cliente 
+      ? `${r.cliente.nombre} ${r.cliente.apellido} ${r.cliente.cedula ? `(${r.cliente.cedula})` : ''}`
+      : 'Cliente no disponible';
+    
+    const habitacionNumero = r.habitacion?.numero || 'N/A';
+    const habitacionPiso = r.habitacion?.piso?.toString() || 'N/A'; // Aseguramos que sea string
+    const habitacionCapacidad = r.habitacion?.capacidad || 'N/A';
+
+    return `
+    <div class="habitacion">
+      <strong>Reserva ID:</strong> ${r.id}<br>
+      <strong>Cliente:</strong> ${clienteInfo}<br>
+      <strong>Fecha:</strong> ${formatDate(r.fechaIngreso)} al ${formatDate(r.fechaSalida)}<br>
+      <strong>Habitación:</strong> ${habitacionNumero} ${habitacionPiso !== 'N/A' ? `(Piso ${habitacionPiso})` : ''}<br>
+      <strong>Cantidad:</strong> ${r.cantidadPersonas} persona(s)<br>
+      ${r.habitacion?.caracteristicas ? `<strong>Características:</strong> ${r.habitacion.caracteristicas}<br>` : ''}
+    </div>
+    `;
+  }).join('')}
+`;
+
+        } catch (error) {
+          listaReservasDiv.innerHTML = `<div class="error">❌ Error al buscar reservas: ${error.message}</div>`;
+          console.error('Error al buscar reservas:', error);
+        }
       });
-
-      listaReservasDiv.innerHTML = `
-        <h3>Reservas encontradas (${reservas.length})</h3>
-        ${reservas.map(r => `
-          <div class="habitacion">
-            <strong>Reserva ID:</strong> ${r.id}<br>
-            <strong>Cliente:</strong> ${r.Cliente.nombre} ${r.Cliente.apellido} (${r.Cliente.cedula})<br>
-            <strong>Fecha:</strong> ${new Date(r.fechaIngreso).toLocaleDateString()} al ${new Date(r.fechaSalida).toLocaleDateString()}<br>
-            <strong>Habitación:</strong> ${r.Habitacion.numero} (Piso ${r.Habitacion.piso})<br>
-            <strong>Capacidad:</strong> ${r.Habitacion.capacidad} personas<br>
-          </div>
-        `).join('')}
-      `;
-
-    } catch (error) {
-      listaReservasDiv.innerHTML = `<div class="error">❌ Error al buscar reservas: ${error.message}</div>`;
-      console.error('Error al buscar reservas:', error);
-    }
-  });
-</script>
+    </script>
   </section>
 
   <script>

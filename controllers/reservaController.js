@@ -5,10 +5,44 @@ const crearReserva = async (req, res) => {
   try {
     const { fechaIngreso, fechaSalida, cantidadPersonas, HotelId, HabitacionId, cedula, nombre, apellido } = req.body;
 
-    // Validación de fechas
-    if (new Date(fechaSalida) <= new Date(fechaIngreso)) {
-      return res.status(400).json({ error: 'La fecha de salida debe ser posterior a la de ingreso' });
+    console.log('Datos recibidos:', req.body);
+
+    // Validar que las fechas estén definidas
+    if (!fechaIngreso || !fechaSalida) {
+      return res.status(400).json({ error: 'Las fechas de ingreso y salida son obligatorias' });
     }
+
+    // Validar que fechaIngreso no sea anterior a hoy (sin horas)
+   const hoy = new Date();
+hoy.setUTCHours(0, 0, 0, 0);  // Usamos UTC para evitar problemas de zona horaria
+
+const ingresoDate = new Date(fechaIngreso);
+ingresoDate.setUTCHours(0, 0, 0, 0);
+
+const salidaDate = new Date(fechaSalida);
+salidaDate.setUTCHours(0, 0, 0, 0);
+
+// Validación para permitir hoy
+if (ingresoDate < hoy) {
+  return res.status(400).json({ 
+    error: 'La fecha de ingreso no puede ser anterior a hoy',
+    detalles: {
+      fechaIngreso: ingresoDate.toISOString(),
+      hoy: hoy.toISOString()
+    }
+  });
+}
+
+// Validación de rango de fechas
+if (salidaDate <= ingresoDate) {
+  return res.status(400).json({ 
+    error: 'La fecha de salida debe ser posterior a la de ingreso',
+    detalles: {
+      fechaIngreso: ingresoDate.toISOString(),
+      fechaSalida: salidaDate.toISOString()
+    }
+  });
+}
 
     // Verificar que el hotel existe
     const hotel = await Hotel.findByPk(HotelId);
@@ -56,19 +90,29 @@ const crearReserva = async (req, res) => {
     if (!cliente) {
       if (!nombre || !apellido) {
         return res.status(400).json({ 
-        error: 'Para clientes nuevos, nombre y apellido son requeridos. Por favor complete el formulario.'});
-        }
+          error: 'Para clientes nuevos, nombre y apellido son requeridos. Por favor complete el formulario.'
+        });
+      }
       cliente = await Cliente.create({
         cedula,
-        nombre: nombre || 'Invitado', // Valor por defecto
-        apellido: apellido || 'Anónimo' // Valor por defecto });
+        nombre,
+        apellido
       });
     }
 
-    // Crear la reserva
+    // Guardar fechas sin conversión a ISO para evitar desfase de zona horaria
+    const fechaIngresoSolo = fechaIngreso;
+    const fechaSalidaSolo = fechaSalida;
+    console.log('fechaIngreso original:', fechaIngreso);
+console.log('fechaSalida original:', fechaSalida);
+console.log('fechaIngresoSolo:', fechaIngresoSolo);
+console.log('fechaSalidaSolo:', fechaSalidaSolo);
+
+
+    // Crear la reserva con los nombres correctos de los campos
     const reserva = await Reserva.create({
-      fechaIngreso,
-      fechaSalida,
+      fechaIngreso: fechaIngresoSolo,
+      fechaSalida: fechaSalidaSolo,
       cantidadPersonas,
       ClienteId: cliente.id,
       HotelId,
@@ -119,9 +163,11 @@ const crearReserva = async (req, res) => {
   }
 };
 
+
+
 const obtenerReservas = async (req, res) => {
   try {
-    const { HotelId, fechaIngreso, fechaSalida, ClienteId } = req.query;
+    const { HotelId, fechaIngreso, fechaSalida, ClienteId, cedula } = req.query;
 
     if (!HotelId || !fechaIngreso) {
       return res.status(400).json({ error: 'HotelId y fechaIngreso son obligatorios' });
@@ -136,7 +182,15 @@ const obtenerReservas = async (req, res) => {
       where.fechaSalida = { [Op.lte]: fechaSalida };
     }
 
-    if (ClienteId) {
+    // Si viene cedula, buscar cliente y usar su id para filtrar
+    if (cedula) {
+      const cliente = await Cliente.findOne({ where: { cedula } });
+      if (!cliente) {
+        // No hay cliente con esa cédula, devolver array vacío
+        return res.json([]);
+      }
+      where.ClienteId = cliente.id;
+    } else if (ClienteId) {
       where.ClienteId = ClienteId;
     }
 
