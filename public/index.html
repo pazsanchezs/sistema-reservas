@@ -8,12 +8,8 @@
       font-family: Arial, sans-serif;
       margin: 20px;
       padding: 0;
-      background-image: url('fondo4.jpg');
-      background-size: cover;
-      background-position: center auto;
-      background-repeat: no-repeat;
     }
-    nav { background-color: #6ebce3; padding: 15px; }
+    nav { background-color: #0071aa; padding: 15px; }
     nav a {
       color: rgb(255, 250, 241);
       margin-right: 10px;
@@ -246,8 +242,10 @@ document.addEventListener('DOMContentLoaded', () => {
       if (res.ok) {
         resultadoDiv.innerHTML = `
           <div class="success">
-            <h3>✅ Reserva creada exitosamente</h3>
-            <pre>${JSON.stringify(respuesta, null, 2)}</pre>
+            <h3>✅ Reserva exitosa</h3>
+            <p><strong>Número de reserva:</strong> ${respuesta.reserva.id}</p>
+            <p><strong>Habitación:</strong> ${respuesta.reserva.habitacion.numero} (Piso ${respuesta.reserva.habitacion.piso})</p>
+            <p><strong>Fechas:</strong> ${new Date(respuesta.reserva.fechaIngreso).toLocaleDateString()} al ${new Date(respuesta.reserva.fechaSalida).toLocaleDateString()}</p>
           </div>
         `;
         reservaForm.reset();
