@@ -39,7 +39,7 @@ const crearReserva = async (req, res) => {
       where: {
         HabitacionId,
         [Op.and]: [
-          { fechaIngreso: { [Op.lt]: fechaSalida } },
+          { fechaIngreso: { [Op.lte]: fechaSalida } },
           { fechaSalida: { [Op.gt]: fechaIngreso } }
         ]
       }
@@ -55,9 +55,14 @@ const crearReserva = async (req, res) => {
     let cliente = await Cliente.findOne({ where: { cedula } });
     if (!cliente) {
       if (!nombre || !apellido) {
-        return res.status(400).json({ error: 'Nombre y apellido son requeridos para nuevos clientes' });
-      }
-      cliente = await Cliente.create({ cedula, nombre, apellido });
+        return res.status(400).json({ 
+        error: 'Para clientes nuevos, nombre y apellido son requeridos. Por favor complete el formulario.'});
+        }
+      cliente = await Cliente.create({
+        cedula,
+        nombre: nombre || 'Invitado', // Valor por defecto
+        apellido: apellido || 'Anónimo' // Valor por defecto });
+      });
     }
 
     // Crear la reserva
@@ -77,7 +82,7 @@ const crearReserva = async (req, res) => {
         { model: Hotel },
         { 
           model: Habitacion,
-          include: [{ model: Hotel }]
+          include: [{ model: Hotel, as: 'hotel' }]
         }
       ]
     });
@@ -107,12 +112,10 @@ const crearReserva = async (req, res) => {
         }
       }
     });
-  } catch (error) {
+  } 
+  catch (error) {
     console.error('Error al crear reserva:', error);
-    res.status(500).json({
-      error: 'Error al crear reserva',
-      detalles: process.env.NODE_ENV === 'development' ? error.message : undefined
-    });
+    res.status(500).json({ error: error.message || 'Error al crear reserva' });
   }
 };
 
@@ -141,11 +144,11 @@ const obtenerReservas = async (req, res) => {
       where,
       include: [
         { model: Cliente, attributes: ['cedula', 'nombre', 'apellido'] },
-        { model: Hotel, attributes: ['nombre'] },
+        { model: Hotel,attributes: ['nombre'] },
         { 
           model: Habitacion,
           attributes: ['numero', 'piso', 'capacidad', 'caracteristicas'],
-          include: [{ model: Hotel, attributes: ['nombre'] }]
+          include: [{ model: Hotel, as: 'hotel', attributes: ['nombre'] }]
         }
       ],
       order: [
@@ -164,7 +167,7 @@ const obtenerReservas = async (req, res) => {
       hotel: reserva.Hotel,
       habitacion: {
         ...reserva.Habitacion.toJSON(),
-        hotel: reserva.Habitacion.Hotel
+        hotel: reserva.Habitacion.hotel
       }
     })));
   } catch (error) {
@@ -239,7 +242,7 @@ const buscarDisponibles = async (req, res) => {
       capacidad: h.capacidad,
       caracteristicas: h.caracteristicas,
       posicion: { x: h.posicion_x, y: h.posicion_y },
-      hotel: h.Hotel // 'Hotel' está asociado a 'hotel' en el alias
+      hotel: h.hotel // 'Hotel' está asociado a 'hotel' en el alias
     })));
   } catch (error) {
     console.error('Error al buscar disponibilidad:', error);
