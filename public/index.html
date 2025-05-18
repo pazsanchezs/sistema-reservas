@@ -45,8 +45,15 @@
 
   <section id="buscar">
     <form id="buscarDisponibilidad">
-    <label>Hotel ID:
-      <input type="number" name="HotelId" required>
+    <label>Seleccionar Hotel:
+      <select name="HotelId" required>
+        <option value="">- Seleccione un hotel -</option>
+        <option value="1">Hotel Central</option>
+        <option value="2">Hotel Sol</option>
+        <option value="3">Hotel Luna</option>
+        <option value="4">Hotel Estrella</option>
+        <option value="5">Hotel Oasis</option>
+      </select>
     </label>
 
     <label>Fecha de Ingreso:
@@ -79,13 +86,13 @@
     <label>Cédula del Cliente:
       <input type="text" name="cedula" required>
     </label>
-
+    <div id="mensajeCliente" class="info" style="margin-top: 10px; color: #555;"></div>
     <div id="camposCliente">
       <label>Nombre del Cliente:
-        <input type="text" name="nombre" required>
+        <input type="text" name="nombre">
       </label>
       <label>Apellido del Cliente:
-        <input type="text" name="apellido" required>
+        <input type="text" name="apellido">
       </label>
     </div>
 
@@ -98,9 +105,11 @@
   </form>
 
   <script>
+
 // Función para formatear fechas sin problemas de zona horaria
 function formatDate(dateString) {
   const date = new Date(dateString);
+
   // Ajustamos para compensar la zona horaria
   const adjustedDate = new Date(date.getTime() + date.getTimezoneOffset() * 60000);
   return adjustedDate.toLocaleDateString('es-ES', {
@@ -122,38 +131,84 @@ document.addEventListener('DOMContentLoaded', () => {
     const camposCliente = document.getElementById('camposCliente');
     const nombreInput = reservaForm.nombre;
     const apellidoInput = reservaForm.apellido;
-    
-    camposCliente.style.display = requerido ? 'block' : 'none';
-    nombreInput.required = requerido;
-    apellidoInput.required = requerido;
+    const mensajeDiv = document.getElementById('mensajeCliente');
+
+    if (requerido) {
+      camposCliente.style.display = 'block';
+      nombreInput.required = true;
+      apellidoInput.required = true;
+      mensajeDiv.textContent = 'Cliente no registrado. Por favor, complete los siguientes datos.';
+      mensajeDiv.style.color = 'orange';
+    } else {
+      camposCliente.style.display = 'none';
+      nombreInput.required = false;
+      apellidoInput.required = false;
+      mensajeDiv.textContent = 'Cliente encontrado';
+      mensajeDiv.style.color = 'green';
+    }
   }
 
   // Verificar si cliente existe al ingresar cédula
   reservaForm.cedula.addEventListener('blur', async () => {
     const cedula = reservaForm.cedula.value.trim();
+    const mensajeDiv = document.getElementById('mensajeCliente');
+    
     if (!cedula) {
-      setCamposClienteRequired(true); // Mostrar campos si cédula está vacía
+      document.getElementById('camposCliente').style.display = 'none';
+      mensajeDiv.textContent = '';
       return;
     }
 
     try {
-      const res = await fetch(`http://localhost:3000/clientes?cedula=${cedula}`);
-      setCamposClienteRequired(!res.ok); // Mostrar campos solo si cliente no existe
+      // Verificar si el cliente existe
+      const res = await fetch(`http://localhost:3000/clientes/buscar?cedula=${cedula}`);
+
+      if (res.ok) {
+        const clientes = await res.json();
+
+      if (clientes.length > 0) {
+          // Cliente existe
+          const cliente = clientes[0];
+          reservaForm.nombre.value = cliente.nombre || '';
+          reservaForm.apellido.value = cliente.apellido || '';
+          document.getElementById('camposCliente').style.display = 'none';
+          mensajeDiv.textContent = 'Cliente registrado encontrado';
+          mensajeDiv.style.color = 'green';
+        } else {
+          // Cliente no existe - mostrar campos para registro
+          reservaForm.nombre.value = '';
+          reservaForm.apellido.value = '';
+          document.getElementById('camposCliente').style.display = 'block';
+          mensajeDiv.textContent = 'Cliente no registrado. Complete los datos.';
+          mensajeDiv.style.color = 'orange';
+          
+          // Hacer requeridos los campos
+          reservaForm.nombre.required = true;
+          reservaForm.apellido.required = true;
+        }
+      } else {
+        throw new Error('Error al verificar cliente');
+      }
     } catch (error) {
-      console.error('Error verificando cliente:', error);
-      setCamposClienteRequired(true); // Mostrar campos por si hay error
+      console.error('Error:', error);
+      mensajeDiv.textContent = 'Cliente no encontrado. Complete los datos.';
+      mensajeDiv.style.color = 'red';
+      document.getElementById('camposCliente').style.display = 'block';
     }
   });
+
 
   buscarForm.addEventListener('submit', async (e) => {
     e.preventDefault();
 
-    // Validación de fechas
+    // Validación de fechas, normalizar fechas (ignorar horas)
     const fechaIngreso = new Date(buscarForm.fechaIngreso.value);
+    fechaIngreso.setHours(0, 0, 0, 0);
     const fechaSalida = new Date(buscarForm.fechaSalida.value);
+    fechaSalida.setHours(0, 0, 0, 0);
 
-    if (fechaSalida <= fechaIngreso) {
-      resultadoDiv.innerHTML = '<div class="error">❌ La fecha de salida debe ser posterior a la de ingreso</div>';
+    if (fechaSalida < fechaIngreso) {
+      resultadoDiv.innerHTML = '<div class="error">❌ La fecha de salida debe ser igual o posterior a la de ingreso</div>';
       return;
     }
 
@@ -212,6 +267,12 @@ document.addEventListener('DOMContentLoaded', () => {
       document.getElementById('reservaPersonas').textContent = data.capacidad;
 
       reservaForm.style.display = 'block';
+      document.getElementById('camposCliente').style.display = 'none'; // Campos ocultos inicialmente
+      reservaForm.nombre.required = false; // No requeridos inicialmente
+      reservaForm.apellido.required = false;
+      reservaForm.nombre.value = ''; // Limpiar valores previos
+      reservaForm.apellido.value = '';
+      document.getElementById('mensajeCliente').textContent = ''; // Limpiar mensaje
 
     } catch (error) {
       resultadoDiv.innerHTML = `<div class="error">❌ Error al buscar disponibilidad: ${error.message}</div>`;
@@ -256,7 +317,9 @@ document.addEventListener('DOMContentLoaded', () => {
           <div class="success">
             <h3>✅ Reserva exitosa</h3>
             <p><strong>Número de reserva:</strong> ${respuesta.reserva.id}</p>
-            <p><strong>Habitación:</strong> ${respuesta.reserva.habitacion.numero} (Piso ${respuesta.reserva.habitacion.piso})</p>
+            <p><strong>Cliente:</strong> ${respuesta.reserva.cliente.nombre} ${respuesta.reserva.cliente.apellido} (${respuesta.reserva.cliente.cedula})</p>
+            <p><strong>Habitación:</strong> ${respuesta.reserva.habitacion ? `Nº ${respuesta.reserva.habitacion.numero} (Piso ${respuesta.reserva.habitacion.piso})`: 'No disponible'}</p>
+            <strong>Características:</strong> ${respuesta.reserva.habitacion?.caracteristicas || 'Sin especificar'}<br>
             <p><strong>Fechas:</strong> ${formatDate(respuesta.reserva.fechaIngreso)} al ${formatDate(respuesta.reserva.fechaSalida)}</p>
           </div>
         `;
@@ -283,9 +346,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
   <section id="reservas">
     <form id="formReservas">
-      <label>Hotel ID:
-        <input type="number" name="HotelId" required>
-      </label>
+      <label>Seleccionar Hotel:
+      <select name="HotelId" required>
+        <option value="">- Seleccione un hotel -</option>
+        <option value="1">Hotel Central</option>
+        <option value="2">Hotel Sol</option>
+        <option value="3">Hotel Luna</option>
+        <option value="4">Hotel Estrella</option>
+        <option value="5">Hotel Oasis</option>
+      </select>
+    </label>
 
       <label>Fecha de Ingreso:
         <input type="date" name="fechaIngreso" required>
@@ -322,6 +392,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
       formReservas.addEventListener('submit', async (e) => {
         e.preventDefault();
+        // Validar campos obligatorios
+        if (!formReservas.HotelId.value || !formReservas.fechaIngreso.value) {
+          listaReservasDiv.innerHTML = '<div class="error">❌ Hotel y Fecha de Ingreso son campos obligatorios</div>';
+          return;
+        }
         listaReservasDiv.innerHTML = '<p>Buscando reservas...</p>';
 
         const data = {
@@ -350,22 +425,35 @@ document.addEventListener('DOMContentLoaded', () => {
 
           // Ordenar reservas (fecha, piso, número)
           reservas.sort((a, b) => {
-            const fechaA = new Date(a.fechaIngreso), fechaB = new Date(b.fechaIngreso);
-            if (fechaA - fechaB !== 0) return fechaA - fechaB;
-            if (a.Habitacion.piso - b.Habitacion.piso !== 0) return a.Habitacion.piso - b.Habitacion.piso;
-            return a.Habitacion.numero - b.Habitacion.numero;
+            const fechaA = new Date(a.fechaIngreso);
+            const fechaB = new Date(b.fechaIngreso);
+  
+            // Ordenar por fecha (creciente)
+            if (fechaA < fechaB) return -1;
+            if (fechaA > fechaB) return 1;
+  
+              // Si las fechas son iguales, ordenar por piso (creciente)
+              const pisoA = a.Habitacion?.piso || 0;
+              const pisoB = b.Habitacion?.piso || 0;
+              if (pisoA < pisoB) return -1;
+              if (pisoA > pisoB) return 1;
+  
+              // Si los pisos son iguales, ordenar por número de habitación (creciente)
+              const numA = a.Habitacion?.numero || 0;
+              const numB = b.Habitacion?.numero || 0;
+              return numA - numB;
           });
 
           listaReservasDiv.innerHTML = `
-  <h3>Reservas encontradas (${reservas.length})</h3>
-  ${reservas.map(r => {
+        <h3>Reservas encontradas (${reservas.length})</h3>
+        ${reservas.map(r => {
     // Extraemos todos los datos con verificaciones
     const clienteInfo = r.cliente 
       ? `${r.cliente.nombre} ${r.cliente.apellido} ${r.cliente.cedula ? `(${r.cliente.cedula})` : ''}`
       : 'Cliente no disponible';
     
-    const habitacionNumero = r.habitacion?.numero || 'N/A';
-    const habitacionPiso = r.habitacion?.piso?.toString() || 'N/A'; // Aseguramos que sea string
+    const habitacionNumero = r.habitacion?.numero ?? 'N/A';
+    const habitacionPiso = r.habitacion && r.habitacion.piso != null ? r.habitacion.piso.toString() : 'N/A';
     const habitacionCapacidad = r.habitacion?.capacidad || 'N/A';
 
     return `
