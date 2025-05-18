@@ -1,6 +1,15 @@
 const express = require('express');
 const { Cliente } = require('../models');
+const { buscarPorCedula} = require('../controllers/clientesController');
 const router = express.Router();
+
+
+router.get(['/', '/buscar'], (req, res) => {
+  if (req.query.cedula) {
+    return buscarPorCedula(req, res);
+  }
+  return obtenerClientes(req, res);
+});
 
 // Obtener todos los clientes
 router.get('/', async (req, res) => {

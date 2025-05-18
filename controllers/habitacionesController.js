@@ -79,7 +79,41 @@ const obtenerHabitaciones = async (req, res) => {
   }
 };
 
+// Actualizar una habitación
+const actualizarHabitacion = async (req, res) => {
+  try {
+    const habitacion = await Habitacion.findByPk(req.params.id);
+    if (!habitacion) {
+      return res.status(404).json({ error: 'Habitación no encontrada' });
+    }
+
+    await habitacion.update(req.body);
+    res.json(habitacion);
+  } catch (error) {
+    console.error('Error al actualizar habitación:', error);
+    res.status(500).json({ error: 'Error al actualizar habitación' });
+  }
+};
+
+// Eliminar una habitación
+const eliminarHabitacion = async (req, res) => {
+  try {
+    const habitacion = await Habitacion.findByPk(req.params.id);
+    if (!habitacion) {
+      return res.status(404).json({ error: 'Habitación no encontrada' });
+    }
+
+    await habitacion.destroy();
+    res.json({ mensaje: 'Habitación eliminada correctamente' });
+  } catch (error) {
+    console.error('Error al eliminar habitación:', error);
+    res.status(500).json({ error: 'Error al eliminar habitación' });
+  }
+};
+
 module.exports = {
   crearHabitacion,
-  obtenerHabitaciones
+  obtenerHabitaciones,
+  actualizarHabitacion,
+  eliminarHabitacion
 };

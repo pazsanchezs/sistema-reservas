@@ -24,4 +24,34 @@ router.post('/', async (req, res) => {
   }
 });
 
+// Actualizar un hotel existente
+router.put('/:id', async (req, res) => {
+  try {
+    const hotel = await Hotel.findByPk(req.params.id);
+    if (hotel) {
+      await hotel.update(req.body);
+      res.json(hotel);
+    } else {
+      res.status(404).json({ error: 'Hotel no encontrado' });
+    }
+  } catch (error) {
+    res.status(500).json({ error: 'Hubo un problema al actualizar el hotel' });
+  }
+});
+
+// Eliminar un hotel
+router.delete('/:id', async (req, res) => {
+  try {
+    const hotel = await Hotel.findByPk(req.params.id);
+    if (hotel) {
+      await hotel.destroy();
+      res.json({ message: 'Hotel eliminado correctamente' });
+    } else {
+      res.status(404).json({ error: 'Hotel no encontrado' });
+    }
+  } catch (error) {
+    res.status(500).json({ error: 'Hubo un problema al eliminar el hotel' });
+  }
+});
+
 module.exports = router;

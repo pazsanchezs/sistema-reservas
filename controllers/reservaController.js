@@ -13,14 +13,14 @@ const crearReserva = async (req, res) => {
     }
 
     // Validar que fechaIngreso no sea anterior a hoy (sin horas)
-   const hoy = new Date();
-hoy.setUTCHours(0, 0, 0, 0);  // Usamos UTC para evitar problemas de zona horaria
+    const hoy = new Date();
+    hoy.setUTCHours(0, 0, 0, 0);  // Usamos UTC para evitar problemas de zona horaria
 
-const ingresoDate = new Date(fechaIngreso);
-ingresoDate.setUTCHours(0, 0, 0, 0);
+    const ingresoDate = new Date(fechaIngreso);
+    ingresoDate.setUTCHours(0, 0, 0, 0);
 
-const salidaDate = new Date(fechaSalida);
-salidaDate.setUTCHours(0, 0, 0, 0);
+    const salidaDate = new Date(fechaSalida);
+    salidaDate.setUTCHours(0, 0, 0, 0);
 
 // Validación para permitir hoy
 if (ingresoDate < hoy) {
@@ -34,9 +34,9 @@ if (ingresoDate < hoy) {
 }
 
 // Validación de rango de fechas
-if (salidaDate <= ingresoDate) {
+if (salidaDate < ingresoDate) {
   return res.status(400).json({ 
-    error: 'La fecha de salida debe ser posterior a la de ingreso',
+    error: 'La fecha de salida debe ser igual o posterior a la de ingreso',
     detalles: {
       fechaIngreso: ingresoDate.toISOString(),
       fechaSalida: salidaDate.toISOString()
@@ -104,9 +104,9 @@ if (salidaDate <= ingresoDate) {
     const fechaIngresoSolo = fechaIngreso;
     const fechaSalidaSolo = fechaSalida;
     console.log('fechaIngreso original:', fechaIngreso);
-console.log('fechaSalida original:', fechaSalida);
-console.log('fechaIngresoSolo:', fechaIngresoSolo);
-console.log('fechaSalidaSolo:', fechaSalidaSolo);
+    console.log('fechaSalida original:', fechaSalida);
+    console.log('fechaIngresoSolo:', fechaIngresoSolo);
+    console.log('fechaSalidaSolo:', fechaSalidaSolo);
 
 
     // Crear la reserva con los nombres correctos de los campos
@@ -126,6 +126,7 @@ console.log('fechaSalidaSolo:', fechaSalidaSolo);
         { model: Hotel },
         { 
           model: Habitacion,
+          required: false, // 🔹 Esto es importante para que no falle si falta la relación
           include: [{ model: Hotel, as: 'hotel' }]
         }
       ]
@@ -244,8 +245,8 @@ const buscarDisponibles = async (req, res) => {
       });
     }
 
-    if (new Date(fechaSalida) <= new Date(fechaIngreso)) {
-      return res.status(400).json({ error: 'La fecha de salida debe ser posterior a la de ingreso' });
+    if (new Date(fechaSalida) < new Date(fechaIngreso)) {
+      return res.status(400).json({ error: 'La fecha de salida debe ser igual o posterior a la de ingreso' });
     }
 
     // Obtener habitaciones ocupadas

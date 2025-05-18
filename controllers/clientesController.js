@@ -66,4 +66,24 @@ const eliminarCliente = async (req, res) => {
   }
 };
 
-module.exports = { crearCliente, obtenerClientes, obtenerCliente, actualizarCliente, eliminarCliente };
+//Buscar por Cedula
+const buscarPorCedula = async (req, res) => {
+  try {
+    const { cedula } = req.query;
+    if (!cedula) {
+      return res.status(400).json({ error: 'Se requiere el parámetro cédula' });
+    }
+
+    const cliente = await Cliente.findOne({ where: { cedula } });
+    
+    // Devuelve un array para ser consistente con el frontend
+    if (cliente) {
+      res.status(200).json([cliente]);
+    } else {
+      res.status(200).json([]);
+    }
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+module.exports = { crearCliente, obtenerClientes, obtenerCliente, actualizarCliente, eliminarCliente, buscarPorCedula };
