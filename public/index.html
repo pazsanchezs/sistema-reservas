@@ -1,488 +1,538 @@
-<!DOCTYPE html>
-<html lang="es">
-<head>
-  <meta charset="UTF-8">
-  <title>Sistema de Reservas</title>
-  <style>
-    body { 
-      font-family: Arial, sans-serif;
-      margin: 20px;
-      padding: 0;
-    }
-    nav { background-color: #0071aa; padding: 15px; }
-    nav a {
-      color: rgb(255, 250, 241);
-      margin-right: 10px;
-      text-decoration: none;
-      font-weight: bold;
-    }
-    nav a:hover { text-decoration: underline; }
-    section { display: none; padding: 20px; }
-    section.active { display: block; }
-    label { display: block; margin-top: 10px; }
-    select, input { padding: 6px; margin-top: 4px; width: 300px; }
-    button { margin-top: 20px; padding: 10px 20px; }
-    .habitacion { border: 1px solid #ffffff; padding: 10px; margin-bottom: 10px; }
-    .error { color: red; }
-    .success { color: green; }
-    .enlace-centrado {
-      text-align: center;
-      margin-top: 10px;
-    }
-  </style>
-</head>
-<body>
-
-  <nav class="enlace-centrado">
-    <a href="#" onclick="mostrarSeccion('buscar')">Buscar Habitaciones</a>
-    <a href="#" onclick="mostrarSeccion('reservas')">Lista de Reservas</a>
-  </nav>
-
-  <section id="inicio" class="active">
-    <h1>BIENVENIDO AL SISTEMA DE RESERVAS</h1>
-    <p>Use el menú de navegación para buscar habitaciones disponibles o consultar reservas existentes.</p>
-  </section>
-
-  <section id="buscar">
-    <form id="buscarDisponibilidad">
-    <label>Seleccionar Hotel:
-      <select name="HotelId" required>
-        <option value="">- Seleccione un hotel -</option>
-        <option value="1">Hotel Central</option>
-        <option value="2">Hotel Sol</option>
-        <option value="3">Hotel Luna</option>
-        <option value="4">Hotel Estrella</option>
-        <option value="5">Hotel Oasis</option>
-      </select>
-    </label>
-
-    <label>Fecha de Ingreso:
-      <input type="date" name="fechaIngreso" required>
-    </label>
-
-    <label>Fecha de Salida:
-      <input type="date" name="fechaSalida" required>
-    </label>
-
-    <label>Cantidad de Personas:
-      <input type="number" name="capacidad" min="1" required>
-    </label>
-
-    <button type="submit">Buscar Disponibilidad</button>
-  </form>
-
-  <div id="resultado"></div>
-
-  <form id="crearReserva" style="display: none;">
-    <h3>Resumen de Reserva</h3>
-    <p><strong>Hotel:</strong> <span id="reservaHotel"></span></p>
-    <p><strong>Fechas:</strong> <span id="reservaFechas"></span></p>
-    <p><strong>Personas:</strong> <span id="reservaPersonas"></span></p>
-
-    <label>Seleccione una habitación:
-      <select name="HabitacionId" required></select>
-    </label>
-
-    <label>Cédula del Cliente:
-      <input type="text" name="cedula" required>
-    </label>
-    <div id="mensajeCliente" class="info" style="margin-top: 10px; color: #555;"></div>
-    <div id="camposCliente">
-      <label>Nombre del Cliente:
-        <input type="text" name="nombre">
-      </label>
-      <label>Apellido del Cliente:
-        <input type="text" name="apellido">
-      </label>
-    </div>
-
-    <input type="hidden" name="HotelId">
-    <input type="hidden" name="fechaIngreso">
-    <input type="hidden" name="fechaSalida">
-    <input type="hidden" name="cantidadPersonas">
-
-    <button type="submit">Crear Reserva</button>
-  </form>
-
-  <script>
-
-// Función para formatear fechas sin problemas de zona horaria
-function formatDate(dateString) {
-  const date = new Date(dateString);
-
-  // Ajustamos para compensar la zona horaria
-  const adjustedDate = new Date(date.getTime() + date.getTimezoneOffset() * 60000);
-  return adjustedDate.toLocaleDateString('es-ES', {
-    year: 'numeric',
-    month: 'numeric',
-    day: 'numeric'
-  });
-}
-
-document.addEventListener('DOMContentLoaded', () => {
-  const buscarForm = document.getElementById('buscarDisponibilidad');
-  const reservaForm = document.getElementById('crearReserva');
-  const habitacionSelect = reservaForm.HabitacionId;
-  const resultadoDiv = document.getElementById('resultado');
-
-  console.log("🧪 DOM cargado. reservaForm encontrado:", reservaForm);
-
-  function setCamposClienteRequired(requerido) {
-    const camposCliente = document.getElementById('camposCliente');
-    const nombreInput = reservaForm.nombre;
-    const apellidoInput = reservaForm.apellido;
-    const mensajeDiv = document.getElementById('mensajeCliente');
-
-    if (requerido) {
-      camposCliente.style.display = 'block';
-      nombreInput.required = true;
-      apellidoInput.required = true;
-      mensajeDiv.textContent = 'Cliente no registrado. Por favor, complete los siguientes datos.';
-      mensajeDiv.style.color = 'orange';
-    } else {
-      camposCliente.style.display = 'none';
-      nombreInput.required = false;
-      apellidoInput.required = false;
-      mensajeDiv.textContent = 'Cliente encontrado';
-      mensajeDiv.style.color = 'green';
-    }
-  }
-
-  // Verificar si cliente existe al ingresar cédula
-  reservaForm.cedula.addEventListener('blur', async () => {
-    const cedula = reservaForm.cedula.value.trim();
-    const mensajeDiv = document.getElementById('mensajeCliente');
-    
-    if (!cedula) {
-      document.getElementById('camposCliente').style.display = 'none';
-      mensajeDiv.textContent = '';
-      return;
-    }
-
-    try {
-      // Verificar si el cliente existe
-      const res = await fetch(`http://localhost:3000/clientes/buscar?cedula=${cedula}`);
-
-      if (res.ok) {
-        const clientes = await res.json();
-
-      if (clientes.length > 0) {
-          // Cliente existe
-          const cliente = clientes[0];
-          reservaForm.nombre.value = cliente.nombre || '';
-          reservaForm.apellido.value = cliente.apellido || '';
-          document.getElementById('camposCliente').style.display = 'none';
-          mensajeDiv.textContent = 'Cliente registrado encontrado';
-          mensajeDiv.style.color = 'green';
-        } else {
-          // Cliente no existe - mostrar campos para registro
-          reservaForm.nombre.value = '';
-          reservaForm.apellido.value = '';
-          document.getElementById('camposCliente').style.display = 'block';
-          mensajeDiv.textContent = 'Cliente no registrado. Complete los datos.';
-          mensajeDiv.style.color = 'orange';
-          
-          // Hacer requeridos los campos
-          reservaForm.nombre.required = true;
-          reservaForm.apellido.required = true;
-        }
-      } else {
-        throw new Error('Error al verificar cliente');
+  <!DOCTYPE html>
+  <html lang="es">
+  <head>
+    <meta charset="UTF-8">
+    <title>Sistema de Reservas</title>
+    <style>
+      body { 
+        font-family: Arial, sans-serif;
+        margin: 20px;
+        padding: 0;
       }
-    } catch (error) {
-      console.error('Error:', error);
-      mensajeDiv.textContent = 'Cliente no encontrado. Complete los datos.';
-      mensajeDiv.style.color = 'red';
-      document.getElementById('camposCliente').style.display = 'block';
-    }
-  });
-
-
-  buscarForm.addEventListener('submit', async (e) => {
-    e.preventDefault();
-
-    // Validación de fechas, normalizar fechas (ignorar horas)
-    const fechaIngreso = new Date(buscarForm.fechaIngreso.value);
-    fechaIngreso.setHours(0, 0, 0, 0);
-    const fechaSalida = new Date(buscarForm.fechaSalida.value);
-    fechaSalida.setHours(0, 0, 0, 0);
-
-    if (fechaSalida < fechaIngreso) {
-      resultadoDiv.innerHTML = '<div class="error">❌ La fecha de salida debe ser igual o posterior a la de ingreso</div>';
-      return;
-    }
-
-    resultadoDiv.innerHTML = '<p>Buscando disponibilidad...</p>';
-
-    try {
-      const data = {
-        HotelId: buscarForm.HotelId.value,
-        fechaIngreso: buscarForm.fechaIngreso.value,
-        fechaSalida: buscarForm.fechaSalida.value,
-        capacidad: buscarForm.capacidad.value
-      };
-
-      const params = new URLSearchParams(data);
-      const res = await fetch(`http://localhost:3000/reservas/disponibles?${params}`);
-
-      if (!res.ok) {
-        throw new Error(await res.text());
+      nav { background-color: #0071aa; padding: 15px; }
+      nav a {
+        color: rgb(255, 250, 241);
+        margin-right: 10px;
+        text-decoration: none;
+        font-weight: bold;
       }
-
-      const habitaciones = await res.json();
-
-      if (habitaciones.length === 0) {
-        resultadoDiv.innerHTML = '<div class="error">❌ No hay habitaciones disponibles para los criterios seleccionados.</div>';
-        reservaForm.style.display = 'none';
-        return;
+      nav a:hover { text-decoration: underline; }
+      section { display: none; padding: 20px; }
+      section.active { display: block; }
+      label { display: block; margin-top: 10px; }
+      select, input { padding: 6px; margin-top: 4px; width: 300px; }
+      button { margin-top: 20px; padding: 10px 20px; }
+      .habitacion { border: 1px solid #ffffff; padding: 10px; margin-bottom: 10px; }
+      .error { color: red; }
+      .success { color: green; }
+      .enlace-centrado {
+        text-align: center;
+        margin-top: 10px;
       }
+    </style>
+  </head>
+  <body>
 
-      // Mostrar resultados
-      resultadoDiv.innerHTML = `
-        <h3>Habitaciones Disponibles (${habitaciones.length})</h3>
-        ${habitaciones.map(h => `
-          <div class="habitacion">
-            <strong>Habitación ${h.numero}</strong> (Piso ${h.piso})<br>
-            Capacidad: ${h.capacidad} personas<br>
-            Características: ${h.caracteristicas || 'Ninguna especificada'}<br>
-          </div>
-        `).join('')}
-      `;
+    <nav class="enlace-centrado">
+      <a href="#" onclick="mostrarSeccion('buscar')">Buscar Habitaciones</a>
+      <a href="#" onclick="mostrarSeccion('reservas')">Lista de Reservas</a>
+    </nav>
 
-      // Rellenar formulario de reserva
-      habitacionSelect.innerHTML = habitaciones.map(h => 
-        `<option value="${h.id}">Habitación ${h.numero} (Piso ${h.piso}) - Capacidad: ${h.capacidad}</option>`
-      ).join('');
+    <section id="inicio" class="active">
+      <h1>BIENVENIDO AL SISTEMA DE RESERVAS</h1>
+      <p>Use el menú de navegación para buscar habitaciones disponibles o consultar reservas existentes.</p>
+    </section>
 
-      // Actualizar campos ocultos
-      reservaForm.HotelId.value = data.HotelId;
-      reservaForm.fechaIngreso.value = data.fechaIngreso;
-      reservaForm.fechaSalida.value = data.fechaSalida;
-      reservaForm.cantidadPersonas.value = data.capacidad;
-
-      // Actualizar resumen con fechas formateadas correctamente
-      document.getElementById('reservaHotel').textContent = `Hotel ID ${data.HotelId}`;
-      document.getElementById('reservaFechas').textContent = 
-        `${formatDate(data.fechaIngreso)} al ${formatDate(data.fechaSalida)}`;
-      document.getElementById('reservaPersonas').textContent = data.capacidad;
-
-      reservaForm.style.display = 'block';
-      document.getElementById('camposCliente').style.display = 'none'; // Campos ocultos inicialmente
-      reservaForm.nombre.required = false; // No requeridos inicialmente
-      reservaForm.apellido.required = false;
-      reservaForm.nombre.value = ''; // Limpiar valores previos
-      reservaForm.apellido.value = '';
-      document.getElementById('mensajeCliente').textContent = ''; // Limpiar mensaje
-
-    } catch (error) {
-      resultadoDiv.innerHTML = `<div class="error">❌ Error al buscar disponibilidad: ${error.message}</div>`;
-      console.error('Error:', error);
-    }
-  });
-
-  reservaForm.addEventListener('submit', async (e) => {
-    console.log("🚀 Submit de reservaForm ejecutado");
-    e.preventDefault();
-    resultadoDiv.innerHTML = '<p>Procesando reserva...</p>';
-    if (reservaForm.nombre.required && (!reservaForm.nombre.value || !reservaForm.apellido.value)) {
-      resultadoDiv.innerHTML = '<div class="error">❌ Nombre y apellido son requeridos</div>';
-      return;
-    }
-    try {
-      const payload = {
-        cedula: reservaForm.cedula.value,
-        HotelId: parseInt(reservaForm.HotelId.value),
-        HabitacionId: parseInt(reservaForm.HabitacionId.value),
-        fechaIngreso: reservaForm.fechaIngreso.value,
-        fechaSalida: reservaForm.fechaSalida.value,
-        cantidadPersonas: parseInt(reservaForm.cantidadPersonas.value),
-        nombre: reservaForm.nombre?.value || '',
-        apellido: reservaForm.apellido?.value || ''
-      };
-
-      console.log("📦 Payload a enviar:", payload);
-
-      const res = await fetch('http://localhost:3000/reservas', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(payload)
-      });
-
-      const respuesta = await res.json();
-
-      if (res.ok) {
-        resultadoDiv.innerHTML = `
-          <div class="success">
-            <h3>✅ Reserva exitosa</h3>
-            <p><strong>Número de reserva:</strong> ${respuesta.reserva.id}</p>
-            <p><strong>Cliente:</strong> ${respuesta.reserva.cliente.nombre} ${respuesta.reserva.cliente.apellido} (${respuesta.reserva.cliente.cedula})</p>
-            <p><strong>Habitación:</strong> ${respuesta.reserva.habitacion ? `Nº ${respuesta.reserva.habitacion.numero} (Piso ${respuesta.reserva.habitacion.piso})`: 'No disponible'}</p>
-            <strong>Características:</strong> ${respuesta.reserva.habitacion?.caracteristicas || 'Sin especificar'}<br>
-            <p><strong>Fechas:</strong> ${formatDate(respuesta.reserva.fechaIngreso)} al ${formatDate(respuesta.reserva.fechaSalida)}</p>
-          </div>
-        `;
-        reservaForm.reset();
-        reservaForm.style.display = 'none';
-        document.getElementById('camposCliente').style.display = 'none';
-      } else {
-        throw new Error(respuesta.error || 'Error desconocido');
-      }
-    } catch (error) {
-      let msg = error.message;
-      try {
-        const errJson = await error.response?.json();
-        if (errJson?.error) msg = errJson.error;
-      } catch {}
-
-      resultadoDiv.innerHTML = `<div class="error">❌ Error al crear reserva: ${msg}</div>`;
-      console.error('Error:', error);
-    }
-  });
-});
-</script>
-  </section>
-
-  <section id="reservas">
-    <form id="formReservas">
+    <section id="buscar">
+      <form id="buscarDisponibilidad">
       <label>Seleccionar Hotel:
-      <select name="HotelId" required>
-        <option value="">- Seleccione un hotel -</option>
-        <option value="1">Hotel Central</option>
-        <option value="2">Hotel Sol</option>
-        <option value="3">Hotel Luna</option>
-        <option value="4">Hotel Estrella</option>
-        <option value="5">Hotel Oasis</option>
-      </select>
-    </label>
+        <select name="HotelId" id="hotelSelect" required>
+          <option value="">- Seleccione un hotel -</option>
+        </select>
+      </label>
+
 
       <label>Fecha de Ingreso:
         <input type="date" name="fechaIngreso" required>
       </label>
 
-      <label>Fecha de Salida (opcional):
-        <input type="date" name="fechaSalida">
+      <label>Fecha de Salida:
+        <input type="date" name="fechaSalida" required>
       </label>
 
-      <label>Cédula del Cliente (opcional):
-        <input type="text" name="cedula">
+      <label>Cantidad de Personas:
+        <input type="number" name="capacidad" min="1" required>
       </label>
 
-      <button type="submit">Buscar Reservas</button>
+      <button type="submit">Buscar Disponibilidad</button>
     </form>
 
-    <div id="listaReservas"></div>
+    <div id="resultado"></div>
+
+    <form id="crearReserva" style="display: none;">
+      <h3>Resumen de Reserva</h3>
+      <p><strong>Hotel:</strong> <span id="reservaHotel"></span></p>
+      <p><strong>Fechas:</strong> <span id="reservaFechas"></span></p>
+      <p><strong>Personas:</strong> <span id="reservaPersonas"></span></p>
+
+      <label>Seleccione una habitación:
+        <select name="HabitacionId" required></select>
+      </label>
+
+      <label>Cédula del Cliente:
+        <input type="text" name="cedula" required>
+      </label>
+      <div id="mensajeCliente" class="info" style="margin-top: 10px; color: #555;"></div>
+      <div id="camposCliente">
+        <label>Nombre del Cliente:
+          <input type="text" name="nombre">
+        </label>
+        <label>Apellido del Cliente:
+          <input type="text" name="apellido">
+        </label>
+      </div>
+
+      <input type="hidden" name="HotelId">
+      <input type="hidden" name="fechaIngreso">
+      <input type="hidden" name="fechaSalida">
+      <input type="hidden" name="cantidadPersonas">
+
+      <button type="submit">Crear Reserva</button>
+    </form>
 
     <script>
-      // Función para formatear fechas (la misma que arriba)
-      function formatDate(dateString) {
-        const date = new Date(dateString);
-        // Ajustamos para compensar la zona horaria
-        const adjustedDate = new Date(date.getTime() + date.getTimezoneOffset() * 60000);
-        return adjustedDate.toLocaleDateString('es-ES', {
-          year: 'numeric',
-          month: 'numeric',
-          day: 'numeric'
-        });
+
+  // Función para formatear fechas sin problemas de zona horaria
+  function formatDate(dateString) {
+    const date = new Date(dateString);
+
+    // Ajustamos para compensar la zona horaria
+    const adjustedDate = new Date(date.getTime() + date.getTimezoneOffset() * 60000);
+    return adjustedDate.toLocaleDateString('es-ES', {
+      year: 'numeric',
+      month: 'numeric',
+      day: 'numeric'
+    });
+  }
+
+  document.addEventListener('DOMContentLoaded', () => {
+    const buscarForm = document.getElementById('buscarDisponibilidad');
+    const reservaForm = document.getElementById('crearReserva');
+    const habitacionSelect = reservaForm.HabitacionId;
+    const resultadoDiv = document.getElementById('resultado');
+
+    console.log("🧪 DOM cargado. reservaForm encontrado:", reservaForm);
+
+    function setCamposClienteRequired(requerido) {
+      const camposCliente = document.getElementById('camposCliente');
+      const nombreInput = reservaForm.nombre;
+      const apellidoInput = reservaForm.apellido;
+      const mensajeDiv = document.getElementById('mensajeCliente');
+
+      if (requerido) {
+        camposCliente.style.display = 'block';
+        nombreInput.required = true;
+        apellidoInput.required = true;
+        mensajeDiv.textContent = 'Cliente no registrado. Por favor, complete los siguientes datos.';
+        mensajeDiv.style.color = 'orange';
+      } else {
+        camposCliente.style.display = 'none';
+        nombreInput.required = false;
+        apellidoInput.required = false;
+        mensajeDiv.textContent = 'Cliente encontrado';
+        mensajeDiv.style.color = 'green';
+      }
+    }
+
+    // Verificar si cliente existe al ingresar cédula
+    reservaForm.cedula.addEventListener('blur', async () => {
+      const cedula = reservaForm.cedula.value.trim();
+      const mensajeDiv = document.getElementById('mensajeCliente');
+      
+      if (!cedula) {
+        document.getElementById('camposCliente').style.display = 'none';
+        mensajeDiv.textContent = '';
+        return;
       }
 
-      const formReservas = document.getElementById('formReservas');
-      const listaReservasDiv = document.getElementById('listaReservas');
+      try {
+        // Verificar si el cliente existe
+        const res = await fetch(`http://localhost:3000/clientes/buscar?cedula=${cedula}`);
 
-      formReservas.addEventListener('submit', async (e) => {
-        e.preventDefault();
-        // Validar campos obligatorios
-        if (!formReservas.HotelId.value || !formReservas.fechaIngreso.value) {
-          listaReservasDiv.innerHTML = '<div class="error">❌ Hotel y Fecha de Ingreso son campos obligatorios</div>';
-          return;
+        if (res.ok) {
+          const clientes = await res.json();
+
+        if (clientes.length > 0) {
+            // Cliente existe
+            const cliente = clientes[0];
+            reservaForm.nombre.value = cliente.nombre || '';
+            reservaForm.apellido.value = cliente.apellido || '';
+            document.getElementById('camposCliente').style.display = 'none';
+            mensajeDiv.textContent = 'Cliente registrado encontrado';
+            mensajeDiv.style.color = 'green';
+          } else {
+            // Cliente no existe - mostrar campos para registro
+            reservaForm.nombre.value = '';
+            reservaForm.apellido.value = '';
+            document.getElementById('camposCliente').style.display = 'block';
+            mensajeDiv.textContent = 'Cliente no registrado. Complete los datos.';
+            mensajeDiv.style.color = 'orange';
+            
+            // Hacer requeridos los campos
+            reservaForm.nombre.required = true;
+            reservaForm.apellido.required = true;
+          }
+        } else {
+          throw new Error('Error al verificar cliente');
         }
-        listaReservasDiv.innerHTML = '<p>Buscando reservas...</p>';
+      } catch (error) {
+        console.error('Error:', error);
+        mensajeDiv.textContent = 'Cliente no encontrado. Complete los datos.';
+        mensajeDiv.style.color = 'red';
+        document.getElementById('camposCliente').style.display = 'block';
+      }
+    });
 
+
+    buscarForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+
+      // Validación de fechas, normalizar fechas (ignorar horas)
+      const fechaIngreso = new Date(buscarForm.fechaIngreso.value);
+      fechaIngreso.setHours(0, 0, 0, 0);
+      const fechaSalida = new Date(buscarForm.fechaSalida.value);
+      fechaSalida.setHours(0, 0, 0, 0);
+
+      if (fechaSalida < fechaIngreso) {
+        resultadoDiv.innerHTML = '<div class="error">❌ La fecha de salida debe ser igual o posterior a la de ingreso</div>';
+        return;
+      }
+
+      resultadoDiv.innerHTML = '<p>Buscando disponibilidad...</p>';
+
+      try {
         const data = {
-          HotelId: formReservas.HotelId.value,
-          fechaIngreso: formReservas.fechaIngreso.value,
-          fechaSalida: formReservas.fechaSalida.value,
-          cedula: formReservas.cedula.value
+          HotelId: buscarForm.HotelId.value,
+          fechaIngreso: buscarForm.fechaIngreso.value,
+          fechaSalida: buscarForm.fechaSalida.value,
+          capacidad: buscarForm.capacidad.value
         };
 
-        const params = new URLSearchParams();
-        params.append("HotelId", data.HotelId);
-        params.append("fechaIngreso", data.fechaIngreso);
-        if (data.fechaSalida) params.append("fechaSalida", data.fechaSalida);
-        if (data.cedula) params.append("cedula", data.cedula);
+        const params = new URLSearchParams(data);
+        const res = await fetch(`http://localhost:3000/reservas/disponibles?${params}`);
 
+        if (!res.ok) {
+          throw new Error(await res.text());
+        }
+
+        const habitaciones = await res.json();
+
+        if (habitaciones.length === 0) {
+          resultadoDiv.innerHTML = '<div class="error">❌ No hay habitaciones disponibles para los criterios seleccionados.</div>';
+          reservaForm.style.display = 'none';
+          return;
+        }
+
+        // Mostrar resultados
+        resultadoDiv.innerHTML = `
+          <h3>Habitaciones Disponibles (${habitaciones.length})</h3>
+          ${habitaciones.map(h => `
+            <div class="habitacion">
+              <strong>Habitación ${h.numero}</strong> (Piso ${h.piso})<br>
+              Capacidad: ${h.capacidad} personas<br>
+              Características: ${h.caracteristicas || 'Ninguna especificada'}<br>
+            </div>
+          `).join('')}
+        `;
+
+        // Rellenar formulario de reserva
+        habitacionSelect.innerHTML = habitaciones.map(h => 
+          `<option value="${h.id}">Habitación ${h.numero} (Piso ${h.piso}) - Capacidad: ${h.capacidad}</option>`
+        ).join('');
+
+        // Actualizar campos ocultos
+        reservaForm.HotelId.value = data.HotelId;
+        reservaForm.fechaIngreso.value = data.fechaIngreso;
+        reservaForm.fechaSalida.value = data.fechaSalida;
+        reservaForm.cantidadPersonas.value = data.capacidad;
+
+        // Actualizar resumen con fechas formateadas correctamente
+        document.getElementById('reservaHotel').textContent = `Hotel ID ${data.HotelId}`;
+        document.getElementById('reservaFechas').textContent = 
+          `${formatDate(data.fechaIngreso)} al ${formatDate(data.fechaSalida)}`;
+        document.getElementById('reservaPersonas').textContent = data.capacidad;
+
+        reservaForm.style.display = 'block';
+        document.getElementById('camposCliente').style.display = 'none'; // Campos ocultos inicialmente
+        reservaForm.nombre.required = false; // No requeridos inicialmente
+        reservaForm.apellido.required = false;
+        reservaForm.nombre.value = ''; // Limpiar valores previos
+        reservaForm.apellido.value = '';
+        document.getElementById('mensajeCliente').textContent = ''; // Limpiar mensaje
+
+      } catch (error) {
+        resultadoDiv.innerHTML = `<div class="error">❌ Error al buscar disponibilidad: ${error.message}</div>`;
+        console.error('Error:', error);
+      }
+    });
+
+    reservaForm.addEventListener('submit', async (e) => {
+      console.log("🚀 Submit de reservaForm ejecutado");
+      e.preventDefault();
+      resultadoDiv.innerHTML = '<p>Procesando reserva...</p>';
+      if (reservaForm.nombre.required && (!reservaForm.nombre.value || !reservaForm.apellido.value)) {
+        resultadoDiv.innerHTML = '<div class="error">❌ Nombre y apellido son requeridos</div>';
+        return;
+      }
+      try {
+        const payload = {
+          cedula: reservaForm.cedula.value,
+          HotelId: parseInt(reservaForm.HotelId.value),
+          HabitacionId: parseInt(reservaForm.HabitacionId.value),
+          fechaIngreso: reservaForm.fechaIngreso.value,
+          fechaSalida: reservaForm.fechaSalida.value,
+          cantidadPersonas: parseInt(reservaForm.cantidadPersonas.value),
+          nombre: reservaForm.nombre?.value || '',
+          apellido: reservaForm.apellido?.value || ''
+        };
+
+        console.log("📦 Payload a enviar:", payload);
+
+        const res = await fetch('http://localhost:3000/reservas', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(payload)
+        });
+
+        const respuesta = await res.json();
+
+        if (res.ok) {
+          resultadoDiv.innerHTML = `
+            <div class="success">
+              <h3>✅ Reserva exitosa</h3>
+              <p><strong>Número de reserva:</strong> ${respuesta.reserva.id}</p>
+              <p><strong>Cliente:</strong> ${respuesta.reserva.cliente.nombre} ${respuesta.reserva.cliente.apellido} (${respuesta.reserva.cliente.cedula})</p>
+              <p><strong>Habitación:</strong> ${respuesta.reserva.habitacion ? `Nº ${respuesta.reserva.habitacion.numero} (Piso ${respuesta.reserva.habitacion.piso})`: 'No disponible'}</p>
+              <strong>Características:</strong> ${respuesta.reserva.habitacion?.caracteristicas || 'Sin especificar'}<br>
+              <p><strong>Fechas:</strong> ${formatDate(respuesta.reserva.fechaIngreso)} al ${formatDate(respuesta.reserva.fechaSalida)}</p>
+            </div>
+          `;
+          reservaForm.reset();
+          reservaForm.style.display = 'none';
+          document.getElementById('camposCliente').style.display = 'none';
+        } else {
+          throw new Error(respuesta.error || 'Error desconocido');
+        }
+      } catch (error) {
+        let msg = error.message;
         try {
-          const res = await fetch(`http://localhost:3000/reservas?${params}`);
-          if (!res.ok) throw new Error(await res.text());
+          const errJson = await error.response?.json();
+          if (errJson?.error) msg = errJson.error;
+        } catch {}
 
-          const reservas = await res.json();
+        resultadoDiv.innerHTML = `<div class="error">❌ Error al crear reserva: ${msg}</div>`;
+        console.error('Error:', error);
+      }
+    });
+  });
+  </script>
+    </section>
 
-          if (reservas.length === 0) {
-            listaReservasDiv.innerHTML = '<div class="error">❌ No se encontraron reservas con los filtros indicados.</div>';
+    <section id="reservas">
+      <form id="formReservas">
+        <label>Seleccionar Hotel:
+        <select name="HotelId" id="hotelSelectReservas" required>
+          <option value="">- Seleccione un hotel -</option>
+        </select>
+      </label>
+
+        <label>Fecha de Ingreso:
+          <input type="date" name="fechaIngreso" required>
+        </label>
+
+        <label>Fecha de Salida (opcional):
+          <input type="date" name="fechaSalida">
+        </label>
+
+        <label>Cédula del Cliente (opcional):
+          <input type="text" name="cedula">
+        </label>
+
+        <button type="submit">Buscar Reservas</button>
+      </form>
+
+      <div id="listaReservas"></div>
+
+      <script>
+        // Función para formatear fechas (la misma que arriba)
+        function formatDate(dateString) {
+          const date = new Date(dateString);
+          // Ajustamos para compensar la zona horaria
+          const adjustedDate = new Date(date.getTime() + date.getTimezoneOffset() * 60000);
+          return adjustedDate.toLocaleDateString('es-ES', {
+            year: 'numeric',
+            month: 'numeric',
+            day: 'numeric'
+          });
+        }
+
+        const formReservas = document.getElementById('formReservas');
+        const listaReservasDiv = document.getElementById('listaReservas');
+
+        formReservas.addEventListener('submit', async (e) => {
+          e.preventDefault();
+          // Validar campos obligatorios
+          if (!formReservas.HotelId.value || !formReservas.fechaIngreso.value) {
+            listaReservasDiv.innerHTML = '<div class="error">❌ Hotel y Fecha de Ingreso son campos obligatorios</div>';
             return;
           }
+          listaReservasDiv.innerHTML = '<p>Buscando reservas...</p>';
 
-          // Ordenar reservas (fecha, piso, número)
-          reservas.sort((a, b) => {
-            const fechaA = new Date(a.fechaIngreso);
-            const fechaB = new Date(b.fechaIngreso);
-  
-            // Ordenar por fecha (creciente)
-            if (fechaA < fechaB) return -1;
-            if (fechaA > fechaB) return 1;
-  
-              // Si las fechas son iguales, ordenar por piso (creciente)
-              const pisoA = a.Habitacion?.piso || 0;
-              const pisoB = b.Habitacion?.piso || 0;
-              if (pisoA < pisoB) return -1;
-              if (pisoA > pisoB) return 1;
-  
-              // Si los pisos son iguales, ordenar por número de habitación (creciente)
-              const numA = a.Habitacion?.numero || 0;
-              const numB = b.Habitacion?.numero || 0;
-              return numA - numB;
-          });
+          const data = {
+            HotelId: formReservas.HotelId.value,
+            fechaIngreso: formReservas.fechaIngreso.value,
+            fechaSalida: formReservas.fechaSalida.value,
+            cedula: formReservas.cedula.value
+          };
 
-          listaReservasDiv.innerHTML = `
-        <h3>Reservas encontradas (${reservas.length})</h3>
-        ${reservas.map(r => {
-    // Extraemos todos los datos con verificaciones
-    const clienteInfo = r.cliente 
-      ? `${r.cliente.nombre} ${r.cliente.apellido} ${r.cliente.cedula ? `(${r.cliente.cedula})` : ''}`
-      : 'Cliente no disponible';
+          const params = new URLSearchParams();
+          params.append("HotelId", data.HotelId);
+          params.append("fechaIngreso", data.fechaIngreso);
+          if (data.fechaSalida) params.append("fechaSalida", data.fechaSalida);
+          if (data.cedula) params.append("cedula", data.cedula);
+
+          try {
+            const res = await fetch(`http://localhost:3000/reservas?${params}`);
+            if (!res.ok) throw new Error(await res.text());
+
+            const reservas = await res.json();
+
+            if (reservas.length === 0) {
+              listaReservasDiv.innerHTML = '<div class="error">❌ No se encontraron reservas con los filtros indicados.</div>';
+              return;
+            }
+
+            // Ordenar reservas (fecha, piso, número)
+            reservas.sort((a, b) => {
+              const fechaA = new Date(a.fechaIngreso);
+              const fechaB = new Date(b.fechaIngreso);
     
-    const habitacionNumero = r.habitacion?.numero ?? 'N/A';
-    const habitacionPiso = r.habitacion && r.habitacion.piso != null ? r.habitacion.piso.toString() : 'N/A';
-    const habitacionCapacidad = r.habitacion?.capacidad || 'N/A';
+              // Ordenar por fecha (creciente)
+              if (fechaA < fechaB) return -1;
+              if (fechaA > fechaB) return 1;
+    
+                // Si las fechas son iguales, ordenar por piso (creciente)
+                const pisoA = a.Habitacion?.piso || 0;
+                const pisoB = b.Habitacion?.piso || 0;
+                if (pisoA < pisoB) return -1;
+                if (pisoA > pisoB) return 1;
+    
+                // Si los pisos son iguales, ordenar por número de habitación (creciente)
+                const numA = a.Habitacion?.numero || 0;
+                const numB = b.Habitacion?.numero || 0;
+                return numA - numB;
+            });
 
-    return `
-    <div class="habitacion">
-      <strong>Reserva ID:</strong> ${r.id}<br>
-      <strong>Cliente:</strong> ${clienteInfo}<br>
-      <strong>Fecha:</strong> ${formatDate(r.fechaIngreso)} al ${formatDate(r.fechaSalida)}<br>
-      <strong>Habitación:</strong> ${habitacionNumero} ${habitacionPiso !== 'N/A' ? `(Piso ${habitacionPiso})` : ''}<br>
-      <strong>Cantidad:</strong> ${r.cantidadPersonas} persona(s)<br>
-      ${r.habitacion?.caracteristicas ? `<strong>Características:</strong> ${r.habitacion.caracteristicas}<br>` : ''}
-    </div>
-    `;
-  }).join('')}
-`;
+            listaReservasDiv.innerHTML = `
+          <h3>Reservas encontradas (${reservas.length})</h3>
+          ${reservas.map(r => {
+      // Extraemos todos los datos con verificaciones
+      const clienteInfo = r.cliente 
+        ? `${r.cliente.nombre} ${r.cliente.apellido} ${r.cliente.cedula ? `(${r.cliente.cedula})` : ''}`
+        : 'Cliente no disponible';
+      
+      const habitacionNumero = r.habitacion?.numero ?? 'N/A';
+      const habitacionPiso = r.habitacion && r.habitacion.piso != null ? r.habitacion.piso.toString() : 'N/A';
+      const habitacionCapacidad = r.habitacion?.capacidad || 'N/A';
 
-        } catch (error) {
-          listaReservasDiv.innerHTML = `<div class="error">❌ Error al buscar reservas: ${error.message}</div>`;
-          console.error('Error al buscar reservas:', error);
-        }
-      });
+      return `
+      <div class="habitacion">
+        <strong>Reserva ID:</strong> ${r.id}<br>
+        <strong>Cliente:</strong> ${clienteInfo}<br>
+        <strong>Fecha:</strong> ${formatDate(r.fechaIngreso)} al ${formatDate(r.fechaSalida)}<br>
+        <strong>Habitación:</strong> ${habitacionNumero} ${habitacionPiso !== 'N/A' ? `(Piso ${habitacionPiso})` : ''}<br>
+        <strong>Cantidad:</strong> ${r.cantidadPersonas} persona(s)<br>
+        ${r.habitacion?.caracteristicas ? `<strong>Características:</strong> ${r.habitacion.caracteristicas}<br>` : ''}
+      </div>
+      `;
+    }).join('')}
+  `;
+
+          } catch (error) {
+            listaReservasDiv.innerHTML = `<div class="error">❌ Error al buscar reservas: ${error.message}</div>`;
+            console.error('Error al buscar reservas:', error);
+          }
+        });
+      </script>
+    </section>
+
+    <script>
+      function mostrarSeccion(id) {
+        document.querySelectorAll('section').forEach(sec => sec.classList.remove('active'));
+        document.getElementById(id).classList.add('active');
+      }
     </script>
-  </section>
 
   <script>
-    function mostrarSeccion(id) {
-      document.querySelectorAll('section').forEach(sec => sec.classList.remove('active'));
-      document.getElementById(id).classList.add('active');
+// Función para cargar hoteles en ambos selects
+  async function cargarHoteles() {
+  // Obtener ambos selects
+    const hotelSelectBuscar = document.getElementById('hotelSelect');
+    const hotelSelectReservas = document.getElementById('hotelSelectReservas');
+  
+  // Verificar que existen ambos elementos
+    if (!hotelSelectBuscar || !hotelSelectReservas) {
+      console.error('No se encontraron los elementos select');
+      return;
     }
+
+    try {
+      const response = await fetch('http://localhost:3000/hoteles');
+    
+      if (!response.ok) {
+        throw new Error(`Error HTTP: ${response.status}`);
+      }
+
+      const hoteles = await response.json();
+    
+    // Función para llenar un select con hoteles
+      const llenarSelect = (selectElement) => {
+      // Limpiar opciones existentes (excepto la primera)
+        while (selectElement.options.length > 1) {
+          selectElement.remove(1);
+        }
+      
+      // Añadir hoteles
+        hoteles.forEach(hotel => {
+          const option = new Option(hotel.nombre, hotel.id);
+          selectElement.add(option);
+        });
+      };
+
+    // Llenar ambos selects
+      llenarSelect(hotelSelectBuscar);
+      llenarSelect(hotelSelectReservas);
+
+    } catch (error) {
+      console.error('Error al cargar hoteles:', error);
+    
+      const mostrarError = (selectElement) => {
+        selectElement.innerHTML = '<option value="">Error al cargar hoteles</option>';
+        selectElement.disabled = true;
+      };
+    
+      if (hotelSelectBuscar) mostrarError(hotelSelectBuscar);
+      if (hotelSelectReservas) mostrarError(hotelSelectReservas);
+    }
+  }
+
+// Ejecutar cuando el DOM esté listo
+  document.addEventListener('DOMContentLoaded', cargarHoteles);
   </script>
 
-</body>
-</html>
+  
+
+  </body>
+  </html>
